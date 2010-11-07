@@ -7,6 +7,8 @@
 #define spawn
 #define cilk
 #define sync
+#else
+#include <cilk-lib.cilkh>
 #endif
 
 struct rle_node {
@@ -285,6 +287,9 @@ main(int argc, const char *argv[])
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%u\n", rle_rec_limit);
+	#ifndef NO_CILK
+	printf("Number of processors:%u\n", Cilk_active_size);
+	#endif
 	symbols = rle_decode(rle, syms_nr);
 
 	timer_init(&t); timer_start(&t);
