@@ -21,7 +21,7 @@ struct rle_head {
 	struct rle_node *first, *last;
 };
 
-static unsigned rle_rec_limit = 1;
+static unsigned rle_rec_limit = 64;
 
 struct rle_head *
 rle_head_alloc(void)
@@ -271,7 +271,7 @@ main(int argc, const char *argv[])
 	if ( (rle_rec_limit_str = getenv("RLE_REC_LIMIT")) != NULL){
 		rle_rec_limit = atol(rle_rec_limit_str);
 		if (rle_rec_limit == 0)
-			rle_rec_limit = 1;
+			rle_rec_limit = 64;
 	}
 
 	rles_nr = 0;
