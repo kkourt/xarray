@@ -24,6 +24,17 @@ struct rle_head {
 
 static unsigned rle_rec_limit = 64;
 
+
+/*
+ * do_loops: keep the processor busy, doing nothing
+ */
+void do_loops(unsigned cnt)
+{
+	volatile unsigned i;
+	for (i=0; i<cnt; i++)
+		;
+}
+
 struct rle_head *
 rle_head_alloc(void)
 {
@@ -137,7 +148,7 @@ struct rle_head *
 rle_encode(char *symbols, unsigned long syms_nr)
 {
 	unsigned long i, freq;
-	char prev;
+	char prev, curr;
 	struct rle_head *ret;
 	struct rle_node dummy_head, *node, *n;
 
@@ -151,7 +162,9 @@ rle_encode(char *symbols, unsigned long syms_nr)
 	freq = 1;
 	for (i=1; i<syms_nr; i++) {
 
-		if (symbols[i] == prev){
+		curr = symbols[i];
+
+		if (curr == prev){
 			freq++;
 			continue;
 		}
@@ -160,7 +173,7 @@ rle_encode(char *symbols, unsigned long syms_nr)
 
 		node->next = n;
 		node = n;
-		prev = symbols[i];
+		prev = curr;
 		freq = 1;
 	}
 
