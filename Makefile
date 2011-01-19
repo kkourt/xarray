@@ -2,9 +2,9 @@
 .PHONY: clean
 
 CC=gcc
-CFLAGS= -Wall -O2 -g
+CFLAGS= -Wall -O2
 
-all: prle_rec rle_rec rle_rec-SKEL
+all: rle_rec prle_rec rle_rec-SKEL
 
 rle_rec: rle_rec.cilk
 	$(CC) -xc -DNO_CILK $(CFLAGS) $< -o $@
@@ -16,4 +16,4 @@ prle_rec: rle_rec.cilk
 	cilkc -cilk-critical-path $(CFLAGS) $< -o $@
 
 clean:
-	rm -f rle_rec prle_rec
+	rm -f rle_rec prle_rec rle_rec-SKEL
