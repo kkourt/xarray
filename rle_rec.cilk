@@ -324,7 +324,7 @@ main(int argc, const char *argv[])
 	wk_begin = Cilk_user_work;
 	tm_begin = Cilk_get_wall_time();
 	#endif
-	//timer_init(&t); timer_start(&t);
+	timer_init(&t); timer_start(&t);
 
 	rle_rec = spawn rle_encode_rec(symbols, syms_nr);
 	sync;
@@ -335,7 +335,7 @@ main(int argc, const char *argv[])
 	cp_elapsed = Cilk_user_critical_path - cp_begin;
 	#endif
 
-	//timer_pause(&t); printf("rle_encode_rec: %lf secs\n", timer_secs(&t));
+	timer_pause(&t); printf("rle_encode_rec: %lf secs\n", timer_secs(&t));
 	//rle_print(rle_rec);
 	assert(rle_cmp(rle, rle_rec) == 1);
 

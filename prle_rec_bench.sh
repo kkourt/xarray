@@ -9,9 +9,7 @@
 #done
 
 rles=1000000
-rm Temp-C
-rm Temp-cilk
-rm Temp-results
+rm -f Temp-C Temp-cilk Temp-results
 
 # get simple C measurements
 echo "*** Running serial (pure C) ***"
@@ -42,7 +40,9 @@ do
 	p4=$(printf "%2.2lf\n" $(echo "$cilk_rle_rec_enc_serial / $cilk_rle_rec_enc"  | bc -l))
 	echo "Cilk RLE (thr:$i):       $cilk_rle_rec_enc (vs C: $p1) (vs C-rec: $p2) (vs cilk-serial:$p3) (vs cillk-serial-rec:$p4)"  | tee -a Temp-results
 done
+cilk_rle_limit=$(perl -n -e 'if (/^rle_rec_limit:\s*(\S+)/){ print $1; }' < Temp-cilk)
 
 echo "*** Results ***"
 echo "Number of RLES:         $rles"
+echo "RLE recursion limit:    $cilk_rle_limit"
 cat Temp-results
