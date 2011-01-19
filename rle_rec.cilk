@@ -140,6 +140,7 @@ rle_alloc_init(char symbol, unsigned long freq, struct rle_node *next)
 	rle = rle_alloc();
 	rle->symbol = symbol;
 	rle->freq = freq;
+	rle->next = next;
 
 	return rle;
 }
