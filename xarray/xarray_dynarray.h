@@ -30,7 +30,7 @@ xarray_get(xarray_t *xarr, long i)
 	size_t da_size = dynarray_size(&xarr->da);
 	if (i < 0)
 		i = da_size + i;
-	assert(i < da_size);
+	assert(i >= 0 && i < da_size);
 	return dynarray_get(&xarr->da, i);
 }
 
@@ -40,7 +40,7 @@ xarray_getchunk(xarray_t *xarr, long i, size_t *chunk_size)
 	size_t da_size = dynarray_size(&xarr->da);
 	if (i < 0)
 		i = da_size + i;
-	assert(i < da_size);
+	assert(i >= 0 && i < da_size);
 	*chunk_size = da_size - i;
 	return dynarray_get(&xarr->da, i);
 }
@@ -49,12 +49,6 @@ static inline xelem_t *
 xarray_append(xarray_t *xarr)
 {
 	return dynarray_alloc(&xarr->da);
-}
-
-static inline xelem_t *
-xarray_append_nr(xarray_t *xarr, size_t nr)
-{
-	return dynarray_alloc_nr(&xarr->da, nr);
 }
 
 static inline xelem_t *

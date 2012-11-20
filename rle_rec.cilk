@@ -282,7 +282,7 @@ main(int argc, const char *argv[])
 	unsigned long syms_nr, rles_nr;
 	char *symbols, *rle_rec_limit_str;
 	xtimer_t t;
-	
+
 	/*
 	#ifdef YES_CILK
 	Cilk_time tm_begin, tm_elapsed;

@@ -14,13 +14,27 @@ typedef void xelem_t;
 
 
 struct xarray_init {
+	// @elem_size: size of elements
 	size_t elem_size;
-	size_t elems_init;
 	union {
-		/* dynarray-specific parameters */
+		/* dynarray-specific parameters:
+		 *  @elems_alloc_grain: allocation grain in elements
+		 *  @elems_init: initial array size in elements
+		 * */
 		struct {
 			size_t elems_alloc_grain;
+			size_t elems_init;
 		} da;
+		/* sla-specific parameters
+		 *  @p: percentage of skip list
+		 *  @max_level: maximum level of skip-list
+		 *  @elems_chunk_size: size of chunk in elements
+		 */
+		struct {
+			float p;
+			unsigned max_level;
+			size_t elems_chunk_size;
+		} sla;
 	};
 };
 
@@ -47,7 +61,7 @@ static size_t   xarray_elem_size(xarray_t *xarr);
 static xelem_t *xarray_get(xarray_t *xarr, long idx);
 static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_size);
 static xelem_t *xarray_append(xarray_t *xarr);
-static xelem_t *xarray_append_nr(xarray_t *xarr, size_t elems_nr);
+//static xelem_t *xarray_append_chunk(xarray_t *xarr, size_t elems_nr, size_t *chunk_size);
 static xelem_t *xarray_pop(xarray_t *xarr, size_t elems);
 
 struct xslice_s;
@@ -62,6 +76,8 @@ static void     xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2);
 
 #if defined(XARRAY_DA__)
 #include "xarray_dynarray.h"
+#elif defined(XARRAY_SLA__)
+#include "xarray_sla.h"
 #endif
 
 #ifndef XSLICE_

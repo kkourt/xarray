@@ -78,8 +78,7 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 {
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(char),
-		.elems_init = syms_nr,
-		.da = {.elems_alloc_grain = 128},
+		.da = {.elems_alloc_grain = 128, .elems_init = syms_nr},
 	});
 
 	for (size_t x=0; x<xarray_size(rle); x++) {
@@ -100,8 +99,10 @@ rle_encode(xslice_t *syms)
 	char prev, curr;
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(struct rle_node),
-		.elems_init = rle_xarr_grain,
-		.da = {.elems_alloc_grain = rle_xarr_grain},
+		.da = {
+			.elems_alloc_grain = rle_xarr_grain,
+			.elems_init = rle_xarr_grain
+		},
 	});
 	assert(xarray_elem_size(ret) == sizeof(struct rle_node));
 
@@ -243,13 +244,18 @@ main(int argc, const char *argv[])
 	xarray_t *rle, *rle_rec, *rle_new;
 	rle = xarray_create(&(struct xarray_init) {
 		.elem_size = sizeof(struct rle_node),
-		.elems_init = rle_xarr_grain,
-		.da = {.elems_alloc_grain = rle_xarr_grain},
+		.da = {
+			.elems_alloc_grain = rle_xarr_grain,
+			.elems_init = rle_xarr_grain
+		}
 	});
 	rle_rec = xarray_create(&(struct xarray_init) {
 		.elem_size = sizeof(struct rle_node),
-		.elems_init = rle_xarr_grain,
-		.da = {.elems_alloc_grain = rle_xarr_grain},
+		.da = {
+			.elems_alloc_grain = rle_xarr_grain,
+			.elems_init = rle_xarr_grain
+
+		}
 	});
 
 	if ( (rle_rec_limit_str = getenv("RLE_REC_LIMIT")) != NULL) {

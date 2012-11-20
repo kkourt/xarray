@@ -20,7 +20,7 @@ xarray_init(xarray_t *xarr, struct xarray_init *init)
 		elems_alloc_grain = ELEMS_ALLOC_GRAIN_DEFAULT;
 
 	dynarray_init(&xarr->da,
-	              init->elem_size, elems_alloc_grain, init->elems_init);
+	              init->elem_size, elems_alloc_grain, init->da.elems_init);
 }
 
 xarray_t *

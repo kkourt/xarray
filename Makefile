@@ -11,7 +11,13 @@ CILKLDFLAGS=-lcilkrts -Xlinker -rpath=/usr/src/other/cilkplus.install/lib
 hdrs  =$(wildcard *.h)
 hdrs +=$(wildcard xarray/*.h)
 
-all: rle_rec prle_rec rle_rec_mpools prle_rec_mpools prle_rec_xarray_da rle_rec_xarray_da
+all: rle_rec prle_rec                     \
+     rle_rec_mpools prle_rec_mpools       \
+     prle_rec_xarray_da rle_rec_xarray_da \
+     rle_rec_xarray_sla
+
+rle_rec_xarray_sla: rle_rec_xarray_sla.o xarray/sla-chunk.o
+	$(CC) $(CFLAGS) $^ -o $@
 
 prle_rec_xarray_da: xarray/xarray_dynarray.o prle_rec_xarray_da.o xarray/dynarray.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
@@ -22,11 +28,17 @@ rle_rec_xarray_da: xarray/xarray_dynarray.o rle_rec_xarray_da.o xarray/dynarray.
 xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
+xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
+	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
+
 prle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
 
 rle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
 	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
+
+rle_rec_xarray_sla.o: rle_rec_xarray.c $(hdrs)
+	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
 
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
