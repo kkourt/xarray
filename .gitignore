@@ -1,0 +1,7 @@
+*.o
+.*swp
+prle_rec
+prle_rec_mpools
+prle_rec_xarray_da
+rle_rec
+rle_rec_mpools
