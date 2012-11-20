@@ -3,6 +3,8 @@
 
 #include <assert.h>
 
+// note that this is a radix tree with one bit index
+// btree stands for binary-tree, not for B-tree
 union btree_node;
 struct btree_inode;
 struct btree_leaf;
