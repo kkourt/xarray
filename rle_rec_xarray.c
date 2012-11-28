@@ -13,6 +13,9 @@
 #endif
 
 #include <xarray.h>
+#include "rle_rec_stats.h"
+
+DECLARE_RLE_STATS
 
 static unsigned long rle_rec_limit =  256;
 static unsigned long rle_xarr_grain = 256;
@@ -104,10 +107,24 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 	return ret;
 }
 
+static inline unsigned getmyid(void)
+{
+	unsigned ret = 0;
+	#if defined(YES_CILK)
+	ret = __cilkrts_get_worker_number();
+	#endif
+	return ret;
+}
+
+
+
 xarray_t *
 rle_encode(xslice_t *syms)
 {
+	RLE_TIMER_START(rle_encode, getmyid());
 	char prev, curr;
+
+	RLE_TIMER_START(rle_alloc, getmyid());
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(struct rle_node),
 		.da = {
@@ -121,7 +138,9 @@ rle_encode(xslice_t *syms)
 		}
 	});
 	assert(xarray_elem_size(ret) == sizeof(struct rle_node));
+	RLE_TIMER_PAUSE(rle_alloc, getmyid());
 
+	RLE_TIMER_START(rle_encode_loop, getmyid());
 	prev = *((char *)xslice_get(syms, 0));
 	size_t freq = 1, idx = 1, chunk_size = 0;
 
@@ -143,15 +162,18 @@ rle_encode(xslice_t *syms)
 
 		idx += chunk_size;
 	}
-
 	xarray_append_rle(ret, prev, freq);
+	RLE_TIMER_PAUSE(rle_encode_loop, getmyid());
+
 	xarray_verify(ret);
+	RLE_TIMER_PAUSE(rle_encode, getmyid());
 	return ret;
 }
 
 xarray_t *
 rle_merge(xarray_t *rle1, xarray_t *rle2)
 {
+	RLE_TIMER_START(rle_merge, getmyid());
 	xarray_verify(rle1);
 	xarray_verify(rle2);
 	assert(rle1 != NULL); assert(xarray_elem_size(rle1) == sizeof(struct rle_node));
@@ -171,6 +193,7 @@ rle_merge(xarray_t *rle1, xarray_t *rle2)
 	xarray_t *ret = xarray_concat(rle1, rle2);
 	//printf("ret\n"); rle_print(ret);
 	//printf("-------------------------\n");;
+	RLE_TIMER_PAUSE(rle_merge, getmyid());
 	return ret;
 }
 
@@ -179,6 +202,7 @@ rle_encode_rec(xslice_t *syms)
 {
 
 	xarray_t *rle1, *rle2, *ret;
+
 
 	assert(xslice_size(syms) > 0);
 	/* unitary solution */
@@ -190,7 +214,9 @@ rle_encode_rec(xslice_t *syms)
 
 	/* splitting */
 	xslice_t s1, s2;
+	RLE_TIMER_START(rle_split, getmyid());
 	xslice_split(syms, &s1, &s2);
+	RLE_TIMER_PAUSE(rle_split, getmyid());
 
 	/*
 	printf("----\n");
@@ -206,9 +232,9 @@ rle_encode_rec(xslice_t *syms)
 
 	/* combine solutions */
 	assert(rle1 != NULL && rle2 != NULL);
-	xarray_verify(rle1); xarray_verify(rle2);
+
 	ret = rle_merge(rle1, rle2);
-	xarray_verify(ret);
+
 	return ret;
 }
 
@@ -248,14 +274,11 @@ rle_cmp(xarray_t *rle1, xarray_t *rle2)
 	return 1;
 }
 
-#include "timer.h"
-
 int
 main(int argc, const char *argv[])
 {
 	unsigned long syms_nr, rles_nr;
 	char *rle_rec_limit_str;
-	xtimer_t t;
 
 	/*
 	#ifdef YES_CILK
@@ -309,23 +332,33 @@ main(int argc, const char *argv[])
 	rle_mkrand(rle, rles_nr, &syms_nr);
 	//rle_print(rle);
 
+	unsigned nthreads = 1;
+	#if defined(YES_CILK)
+	nthreads = __cilkrts_get_nworkers();
+	#endif
+
+
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%lu\n", rle_rec_limit);
-	#ifndef NO_CILK
-	printf("Number of processors:%u\n", __cilkrts_get_nworkers());
-	#endif
+	printf("Number of threads:%u\n", nthreads);
+
+
 	xarray_t *syms = rle_decode(rle, syms_nr);
 	xslice_t syms_sl;
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
 
+	rle_stats_create(nthreads);
+
+	tsc_t total_ticks;
 	/*
 	 * start RLE
 	 */
-	timer_init(&t); timer_start(&t);
+	tsc_init(&total_ticks); tsc_start(&total_ticks);
 	rle_new = rle_encode(&syms_sl);
 	//rle_print(rle_new);
-	timer_pause(&t); printf("rle_encode:     %lf secs\n", timer_secs(&t));
+	tsc_pause(&total_ticks);
+	printf("rle_encode:         %s ticks\n", ul_hstr(tsc_getticks(&total_ticks)));
 	if (rle_cmp(rle, rle_new) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
@@ -341,11 +374,18 @@ main(int argc, const char *argv[])
 	*/
 
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
-	timer_init(&t); timer_start(&t);
+
+	// performance stats
+	rle_stats_init(nthreads);
+
+	tsc_init(&total_ticks); tsc_start(&total_ticks);
 	rle_rec = cilk_spawn rle_encode_rec(&syms_sl);
 	cilk_sync;
-	timer_pause(&t);
-	printf("rle_encode_rec: %lf secs\n", timer_secs(&t));
+	tsc_pause(&total_ticks);
+	printf("rle_encode_rec:     %s ticks\n", ul_hstr(tsc_getticks(&total_ticks)));
+
+	rle_stats_report(nthreads, tsc_getticks(&total_ticks));
+	rle_stats_destroy();
 
 	/*
 	#ifdef YES_CILK
@@ -356,7 +396,7 @@ main(int argc, const char *argv[])
 	*/
 
 	//rle_print(rle_rec);
-	if (rle_cmp(rle, rle_rec) != 1) {
+	if (0 && rle_cmp(rle, rle_rec) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
 	}

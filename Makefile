@@ -1,12 +1,18 @@
 .PHONY: all
 .PHONY: clean
 
-CC=gcc
-CFLAGS= -Wall -O2 -I./xarray -std=c99 -ggdb3 #-DNDEBUG
-CILKCC=/usr/src/other/cilkplus.install/bin/gcc
-CILKCCFLAGS=-fcilkplus $(CFLAGS)
-# we don't need no stinkin LD_LIBRARY_PATH
-CILKLDFLAGS=-lcilkrts -Xlinker -rpath=/usr/src/other/cilkplus.install/lib
+CC                 = gcc
+CFLAGS             = -Wall -O2 -I. -I./xarray -std=c99 -ggdb3 -D_GNU_SOURCE
+CFLAGS            += -DNDEBUG
+LDFLAGS            =
+
+CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
+LDFLAGS           += -ltcmalloc_minimal
+
+CILKCC             = /usr/src/other/cilkplus.install/bin/gcc
+CILKCCFLAGS        = -fcilkplus $(CFLAGS)
+                      # we don't need no stinkin LD_LIBRARY_PATH
+CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=/usr/src/other/cilkplus.install/lib $(LDFLAGS)
 
 hdrs  =$(wildcard *.h)
 hdrs +=$(wildcard xarray/*.h)
@@ -20,13 +26,13 @@ prle_rec_xarray_sla: prle_rec_xarray_sla.o xarray/sla-chunk.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 rle_rec_xarray_sla: rle_rec_xarray_sla.o xarray/sla-chunk.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
 prle_rec_xarray_da: xarray/xarray_dynarray.o prle_rec_xarray_da.o xarray/dynarray.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 rle_rec_xarray_da: xarray/xarray_dynarray.o rle_rec_xarray_da.o xarray/dynarray.o
-	$(CC) $(CFLAGS) $^ -o $@
+	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
 xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
@@ -53,13 +59,13 @@ prle_rec_mpools: rle_rec_mpools.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
 
 rle_rec_mpools: rle_rec_mpools.c
-	$(CC) -DNO_CILK $(CFLAGS) $< -o $@
+	$(CC) -DNO_CILK $(LDFLAGS) $(CFLAGS) $< -o $@
 
 prle_rec: rle_rec.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
 
 rle_rec: rle_rec.c
-	$(CC) -DNO_CILK $(CFLAGS) $< -o $@
+	$(CC) -DNO_CILK $(LDFLAGS) $(CFLAGS) $< -o $@
 
 clean:
 	rm -f *.o xarray/*.o rle_rec prle_rec rle_rec_mpools prle_rec_mpools

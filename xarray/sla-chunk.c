@@ -1,5 +1,3 @@
-#define _GNU_SOURCE /* rand_r() */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +6,7 @@
 #include <time.h>
 #endif
 
+#include "misc.h"
 #include "sla-chunk.h"
 
 /**
@@ -651,16 +650,6 @@ sla_append_tailnode(sla_t *sla, char *buff, size_t len)
 
 	return clen;
 }
-
-#define xmalloc(x) ({ \
-	void *xret = malloc(x);\
-	if (!xret) { \
-		perror("malloc");\
-		exit(1); \
-	} \
-	xret; \
-})
-
 
 void
 sla_copyto(sla_t *sla, char *src, size_t len, size_t alloc_grain)

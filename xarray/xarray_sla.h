@@ -8,6 +8,7 @@
 #endif
 
 #include "sla-chunk.h"
+#include "misc.h"
 
 // @elems_nr is not currently needed, we keep it for doing some assertions. We
 // might use it in the future if we want to keep preallocated space on the array
@@ -131,15 +132,6 @@ xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_elems)
 
 	return (xelem_t *)((char *)n->chunk + chunk_off);
 }
-
-#define xmalloc(x) ({ \
-	void *xret = malloc(x);\
-	if (!xret) { \
-		perror("malloc");\
-		abort(); \
-	} \
-	xret; \
-})
 
 static inline xelem_t *
 xarray_append(xarray_t *xarr)
