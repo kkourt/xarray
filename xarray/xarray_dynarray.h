@@ -24,6 +24,11 @@ xarray_elem_size(xarray_t *xarr)
 	return dynarray_elem_size(&xarr->da);
 }
 
+static inline void
+xarray_verify(xarray_t *xarr)
+{
+}
+
 static inline xelem_t *
 xarray_get(xarray_t *xarr, long i)
 {

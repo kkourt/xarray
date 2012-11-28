@@ -14,7 +14,10 @@ hdrs +=$(wildcard xarray/*.h)
 all: rle_rec prle_rec                     \
      rle_rec_mpools prle_rec_mpools       \
      prle_rec_xarray_da rle_rec_xarray_da \
-     rle_rec_xarray_sla
+     prle_rec_xarray_sla rle_rec_xarray_sla
+
+prle_rec_xarray_sla: prle_rec_xarray_sla.o xarray/sla-chunk.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 rle_rec_xarray_sla: rle_rec_xarray_sla.o xarray/sla-chunk.o
 	$(CC) $(CFLAGS) $^ -o $@
@@ -33,6 +36,9 @@ xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
 
 prle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
+
+prle_rec_xarray_sla.o: rle_rec_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_SLA__ $< -o $@ -c
 
 rle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
 	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
@@ -57,6 +63,8 @@ rle_rec: rle_rec.c
 
 clean:
 	rm -f *.o xarray/*.o rle_rec prle_rec rle_rec_mpools prle_rec_mpools
+	rm -f prle_rec_xarray_da rle_rec_xarray_da
+	rm -f prle_rec_xarray_sla rle_rec_xarray_sla
 
 
 ## Old versions based on cilk, compiled as C

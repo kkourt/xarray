@@ -16,7 +16,8 @@ typedef void xelem_t;
 struct xarray_init {
 	// @elem_size: size of elements
 	size_t elem_size;
-	union {
+	// we coudn use a union to save memory, but we would need to do #ifdefs
+	struct {
 		/* dynarray-specific parameters:
 		 *  @elems_alloc_grain: allocation grain in elements
 		 *  @elems_init: initial array size in elements

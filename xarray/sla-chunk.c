@@ -308,6 +308,7 @@ sla_pop_node_head(sla_t *sla, unsigned *lvl_ret)
 		return ret;
 	}
 
+	assert(SLA_NODE_NITEMS(ret) < sla->total_size);
 	unsigned i;
 	for (i=0; i<sla->cur_level; i++) { // iterate node levels
 		if (SLA_HEAD_NODE(sla, i) != ret)
@@ -326,12 +327,13 @@ sla_pop_node_head(sla_t *sla, unsigned *lvl_ret)
 		*lvl_ret = i-1;
 
 	for ( ;i<sla->cur_level; i++) { // itereate remaining levels
-		struct sla_node *h = SLA_HEAD_NODE(sla, i);
+		struct sla_node *h __attribute__((unused)) = SLA_HEAD_NODE(sla, i);
 		unsigned int ncnt = SLA_NODE_CNT(ret, i);
 		assert(SLA_NODE_CNT(h,i) >= ncnt);
 		SLA_NODE_CNT(SLA_HEAD_NODE(sla, i), i) -= ncnt;
 	}
 
+	sla->total_size -= SLA_NODE_NITEMS(ret);
 	return ret;
 }
 
@@ -495,7 +497,7 @@ sla_concat(sla_t *sla1, sla_t *sla2)
  * pop the tail node
  *  This is ugly and has performance issues. Hopefully it won't be called often
  *  Alternative options:
- *   - keep the nodes there
+ *   - don't deallocate nodes => won't work: how would you do append?
  *   - double link list
  */
 sla_node_t *
@@ -516,11 +518,13 @@ sla_pop_tail(sla_t *sla)
 	 *  SLA_TAIL_NODE(sla, i) == SLA_TAIL_NODE(sla, 0)
 	 * We need to find the node before n, which will become the new tail
 	 *
-	 * To do that, start from @p, which is the first tail node we can find
-	 * (as we go up the levels) that is not @n. We then, do a linear search
-	 * for @n starting from @p for all @n's levels. If @n has @cur_level
-	 * leves, we start with head
+	 * To do that, we start from @p, which is the first tail node we can
+	 * find (as we go up the levels) that is not @n. We then, do a linear
+	 * search for @n starting from @p for all @n's levels. If @n has
+	 * @cur_level leves, we start with head.
 	 */
+
+	/* find @p and @n_levels -- i.e n's nubmer of levels */
 	sla_node_t *p = h;
 	unsigned n_levels=1;
 	for (unsigned i=1; i<sla->cur_level; i++) {
@@ -533,20 +537,25 @@ sla_pop_tail(sla_t *sla)
 	}
 
 	/**
-	 * go over all @n's levels and fix pointers and counts
-	 * Update @p as we find closer to @n nodes
+	 * go over all @n's levels and fix pointers and counts.
+	 * Update @p as we find nodes that are closer to @n.
 	 */
-	for (unsigned i=n_levels-1; i>0; i--) { // backwards
-		sla_node_t *x=p;
-		for (; x != n; x = sla_node_next(n, i)) {
+	for (unsigned i=n_levels-1; i<n_levels; i--) { // backwards
+		// find @n's previous node for this level.
+		sla_node_t *x;
+		for (x = p; x != n; x = sla_node_next(x, i)) {
+			assert(x != NULL);
 			assert(x != sla->tail);
 			p = x;
 		}
-		// fix tail count
+		// fix tail count: there might be other nodes with smaller
+		// levels that the one we currently are. We need to update tail
+		// count to the total count of these nodes. We fidn this value
+		// by substracting @n's elelemts for its count on this level
 		assert(SLA_TAIL_CNT(sla, i) == 0);
 		assert(nlen <= SLA_NODE_CNT(n, i));
 		SLA_TAIL_CNT(sla, i) = SLA_NODE_CNT(n, i) - nlen;
-		// fix pointers
+		// fix pointers: we need to fix tail pointers and node pointers
 		assert(SLA_TAIL_NODE(sla, i) == n);
 		SLA_TAIL_NODE(sla, i) = p;
 		assert(SLA_NODE_NEXT(p, i) == n);
@@ -558,9 +567,11 @@ sla_pop_tail(sla_t *sla)
 	 */
 	for (unsigned i=n_levels; i<sla->cur_level; i++) {
 		assert(SLA_TAIL_NODE(sla, i) != n);
+		assert(SLA_TAIL_CNT(sla, i) >= nlen);
 		SLA_TAIL_CNT(sla, i) -= nlen;
 	}
 
+	sla->total_size -= nlen;
 	return n;
 }
 
@@ -588,6 +599,7 @@ sla_pop_tailnode(sla_t *sla, size_t *len)
 				SLA_TAIL_CNT(sla, i) -= *len;
 		}
 		ret = n->chunk + (nlen - *len);
+		sla->total_size -= *len;
 	}
 
 	return ret;

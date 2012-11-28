@@ -14,8 +14,10 @@
 
 #include <xarray.h>
 
-static unsigned long rle_rec_limit =  128;
-static unsigned long rle_xarr_grain = 128;
+static unsigned long rle_rec_limit =  256;
+static unsigned long rle_xarr_grain = 256;
+static unsigned long rle_sla_max_level = 5;
+static float         rle_sla_p = 0.5;
 
 
 struct rle_node {
@@ -78,10 +80,19 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 {
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(char),
-		.da = {.elems_alloc_grain = 128, .elems_init = syms_nr},
+		.da = {
+			.elems_alloc_grain = rle_xarr_grain,
+			.elems_init = syms_nr
+		},
+		.sla = {
+			.p                =  rle_sla_p,
+			.max_level        =  rle_sla_max_level,
+			.elems_chunk_size =  rle_xarr_grain
+		}
 	});
 
-	for (size_t x=0; x<xarray_size(rle); x++) {
+	size_t xarr_size = xarray_size(rle);
+	for (size_t x=0; x<xarr_size; x++) {
 		struct rle_node *n = xarray_get(rle, x);
 		for (size_t i=0; i<n->freq; i++) {
 			char *p = xarray_append(ret);
@@ -103,6 +114,11 @@ rle_encode(xslice_t *syms)
 			.elems_alloc_grain = rle_xarr_grain,
 			.elems_init = rle_xarr_grain
 		},
+		.sla = {
+			.p                =  rle_sla_p,
+			.max_level        =  rle_sla_max_level,
+			.elems_chunk_size =  rle_xarr_grain
+		}
 	});
 	assert(xarray_elem_size(ret) == sizeof(struct rle_node));
 
@@ -129,12 +145,15 @@ rle_encode(xslice_t *syms)
 	}
 
 	xarray_append_rle(ret, prev, freq);
+	xarray_verify(ret);
 	return ret;
 }
 
 xarray_t *
 rle_merge(xarray_t *rle1, xarray_t *rle2)
 {
+	xarray_verify(rle1);
+	xarray_verify(rle2);
 	assert(rle1 != NULL); assert(xarray_elem_size(rle1) == sizeof(struct rle_node));
 	assert(rle2 != NULL); assert(xarray_elem_size(rle2) == sizeof(struct rle_node));
 
@@ -159,12 +178,15 @@ xarray_t *
 rle_encode_rec(xslice_t *syms)
 {
 
-	xarray_t *rle1, *rle2;
+	xarray_t *rle1, *rle2, *ret;
 
 	assert(xslice_size(syms) > 0);
 	/* unitary solution */
-	if (xslice_size(syms) <= rle_rec_limit)
-		return rle_encode(syms);
+	if (xslice_size(syms) <= rle_rec_limit) {
+		ret = rle_encode(syms);
+		xarray_verify(ret);
+		return ret;
+	}
 
 	/* splitting */
 	xslice_t s1, s2;
@@ -182,9 +204,12 @@ rle_encode_rec(xslice_t *syms)
 	rle2 = cilk_spawn rle_encode_rec(&s2);
 	cilk_sync;
 
-	/* combining solutions */
+	/* combine solutions */
 	assert(rle1 != NULL && rle2 != NULL);
-	return rle_merge(rle1, rle2);
+	xarray_verify(rle1); xarray_verify(rle2);
+	ret = rle_merge(rle1, rle2);
+	xarray_verify(ret);
+	return ret;
 }
 
 int
@@ -247,6 +272,11 @@ main(int argc, const char *argv[])
 		.da = {
 			.elems_alloc_grain = rle_xarr_grain,
 			.elems_init = rle_xarr_grain
+		},
+		.sla = {
+			.p                =  rle_sla_p,
+			.max_level        =  rle_sla_max_level,
+			.elems_chunk_size =  rle_xarr_grain
 		}
 	});
 	rle_rec = xarray_create(&(struct xarray_init) {
@@ -255,6 +285,11 @@ main(int argc, const char *argv[])
 			.elems_alloc_grain = rle_xarr_grain,
 			.elems_init = rle_xarr_grain
 
+		},
+		.sla = {
+			.p                =  rle_sla_p,
+			.max_level        =  rle_sla_max_level,
+			.elems_chunk_size =  rle_xarr_grain
 		}
 	});
 

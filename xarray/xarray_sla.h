@@ -20,10 +20,11 @@ struct xarray_s {
 };
 
 static inline void
-verify_xarr(xarray_t *xarr)
+xarray_verify(xarray_t *xarr)
 {
 	assert(xarr->sla.total_size % xarr->elem_size == 0);
 	assert(xarr->sla.total_size / xarr->elem_size == xarr->elems_nr);
+	sla_verify(&xarr->sla);
 }
 
 void
@@ -33,6 +34,7 @@ xarray_init(xarray_t *xarr, struct xarray_init *init)
 	xarr->elem_size = init->elem_size;
 	xarr->elems_chunk_size = init->sla.elems_chunk_size;
 	sla_init(&xarr->sla, init->sla.max_level, init->sla.p);
+	xarray_verify(xarr);
 }
 
 xarray_t *
@@ -50,7 +52,7 @@ xarray_create(struct xarray_init *init)
 static inline size_t
 xarray_size(xarray_t *xarr)
 {
-	verify_xarr(xarr);
+	xarray_verify(xarr);
 	return xarr->elems_nr;
 }
 
@@ -63,7 +65,7 @@ xarray_concat(xarray_t *arr1, xarray_t *arr2)
 	arr1->elems_nr += arr2->elems_nr;
 	free(arr2);
 
-	verify_xarr(arr1);
+	xarray_verify(arr1);
 	return arr1;
 }
 
@@ -77,8 +79,12 @@ xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2)
 	xa1->elems_chunk_size = xa2->elems_chunk_size = xa->elems_chunk_size;
 
 	sla_split_coarse(&xa->sla, &xa1->sla, &xa2->sla, offset);
+
 	xa1->elems_nr = xa1->sla.total_size / xa1->elem_size;
+	xarray_verify(xa1);
+
 	xa2->elems_nr = xa2->sla.total_size / xa2->elem_size;
+	xarray_verify(xa2);
 
 	sla_destroy(&xa->sla);
 	free(xa);
@@ -87,6 +93,7 @@ xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2)
 static inline size_t
 xarray_elem_size(xarray_t *xarr)
 {
+	xarray_verify(xarr);
 	return xarr->elem_size;
 }
 
@@ -151,6 +158,8 @@ xarray_append(xarray_t *xarr)
 	xelem_t *ret = sla_append_tailnode__(sla, &elem_size);
 	assert(ret != NULL);
 	assert(elem_size == xarr->elem_size);
+	xarr->elems_nr++;
+	xarray_verify(xarr);
 	return ret;
 }
 
@@ -161,7 +170,7 @@ xarray_pop(xarray_t *xarr, size_t elems)
 	xelem_t *ret = sla_pop_tailnode(&xarr->sla, &elem_size);
 	assert(elem_size == xarr->elem_size);
 	xarr->elems_nr--;
-	verify_xarr(xarr);
+	xarray_verify(xarr);
 	return ret;
 }
 

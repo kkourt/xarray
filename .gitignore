@@ -1,7 +1,13 @@
 *.o
 .*swp
+core
+cscope.out
 prle_rec
 prle_rec_mpools
-prle_rec_xarray_da
 rle_rec
 rle_rec_mpools
+rle_rec_xarray_da
+prle_rec_xarray_da
+rle_rec_xarray_sla
+prle_rec_xarray_sla
+xarray/sla-chunk-tests/pop_tail
