@@ -716,12 +716,12 @@ sla_copyto_rand(sla_t *sla, char *src, size_t len,
 }
 
 /**
- * Ponter nodes:
+ * Ponters
  *
- * Ponter nodes are special nodes, used to implement slices. Essentially they
- * allow to start a search from a different point in the SLA. They are similar
- * to head nodes, but they have a meaningful cnt field on their forward
- * pointers. The cnt is the _total_ cnt from the original head of the sla.
+ * Ponters are special forward pointer structures, used to implement slices.
+ * Essentially they allow to start a search from a different point in the SLA.
+ * They are similar to the forward pointers in head nodes, but they have a
+ * meaningful cnt. The cnt is the _total_ cnt from the original head of the sla.
  *
  * head nodes have a size to accomodate ->max_level, since pointers do not
  * change, having a size to accomodate ->cur_level should work OK.
@@ -734,7 +734,7 @@ sla_copyto_rand(sla_t *sla, char *src, size_t len,
 
 // set a pointer to start at @idx
 void
-sla_ptr_set(sla_t *sla, size_t key, sla_node_t *ptr)
+sla_ptr_set(sla_t *sla, size_t key, sla_fwrd_t ptr[])
 {
 	sla_node_t *n = sla->head;
 	size_t idx = 0, next_e;
@@ -749,8 +749,8 @@ sla_ptr_set(sla_t *sla, size_t key, sla_node_t *ptr)
 			//next_s = next_e - SLA_NODE_NITEMS(next);
 			// key is before next node, go down a level
 			if (key < next_e) {
-				ptr->forward[i].node = next;
-				ptr->forward[i].cnt = idx;
+				ptr[i].node = next;
+				ptr[i].cnt = idx;
 				break;
 			}
 			// sanity check
@@ -769,9 +769,9 @@ sla_ptr_set(sla_t *sla, size_t key, sla_node_t *ptr)
 
 // find a node based on a pointer
 sla_node_t *
-sla_ptr_find(sla_t *sla, sla_node_t *ptr, size_t key, size_t *chunk_off)
+sla_ptr_find(sla_t *sla, sla_fwrd_t ptr[], size_t key, size_t *chunk_off)
 {
-	assert(key >= SLA_NODE_CNT(ptr, 0));
+	assert(key >= ptr[0].cnt);
 	assert(key <  sla->total_size);
 
 	size_t x_start, x_end;
@@ -779,8 +779,8 @@ sla_ptr_find(sla_t *sla, sla_node_t *ptr, size_t key, size_t *chunk_off)
 
 	int cur_lvl = sla->cur_level, lvl;
 	for (lvl = cur_lvl -1; lvl < cur_lvl; lvl--) { // backwards
-		x = sla_node_next(ptr, lvl);
-		x_end = SLA_NODE_CNT(ptr, lvl) + SLA_NODE_CNT(x, lvl);
+		x = ptr[lvl].node;
+		x_end = ptr[lvl].cnt + SLA_NODE_CNT(x, lvl);
 		x_start = x_end - SLA_NODE_CNT(x, 0);
 		//printf("x_start=%lu x_end=%lu lvl=%d\n", x_start, x_end, lvl);
 		if (key >= x_end) { // key beyond next node

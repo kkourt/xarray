@@ -227,9 +227,9 @@ void sla_print_chars(sla_t *sla);
 
 
 void
-sla_ptr_set(sla_t *sla, size_t idx, sla_node_t *ptr);
+sla_ptr_set(sla_t *sla, size_t idx, sla_fwrd_t ptr[]);
 sla_node_t *
-sla_ptr_find(sla_t *sla, sla_node_t *ptr, size_t key, size_t *chunk_off);
+sla_ptr_find(sla_t *sla, sla_fwrd_t ptr[], size_t key, size_t *chunk_off);
 
 
 #endif /* SLA_H__ */

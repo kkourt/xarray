@@ -20,9 +20,7 @@ int main(int argc, const char *argv[])
 	//sla_print_chars(&sla);
 	sla_print(&sla); printf("\n");
 
-	sla_node_t *ptr;
-	ptr = do_sla_node_alloc(sla.cur_level, NULL, 0);
-
+	sla_fwrd_t ptr[sla.cur_level];
 	for (size_t ptr_i=0; ptr_i<sizeof(buff); ptr_i++) {
 		sla_ptr_set(&sla, ptr_i, ptr);
 		#if 0
