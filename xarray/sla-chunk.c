@@ -35,6 +35,12 @@ randf(unsigned int *seed)
 	return ((float)rand_r(seed))/((float)RAND_MAX);
 }
 
+static inline int
+randi(unsigned int *seed, size_t i_max, size_t i_min)
+{
+	return (rand_r(seed) % (i_max - i_min)) + i_min;
+}
+
 /* sla_rand_level: return a random level for a new node */
 unsigned
 sla_rand_level(sla_t *sla)
@@ -59,7 +65,7 @@ sla_node_init(sla_node_t *node, unsigned lvl,
 }
 
 /* allocate and initialize an sla node (takes level directly as argument) */
-static sla_node_t *
+sla_node_t *
 do_sla_node_alloc(unsigned lvl, void *chunk, size_t chunk_size)
 {
 	size_t size = sla_node_size(lvl);
@@ -101,9 +107,9 @@ do_sla_init(sla_t *sla)
 	}
 }
 
-/* initialize a skiplist array */
+
 void
-sla_init(sla_t *sla, unsigned max_level, float p)
+sla_init_seed(sla_t *sla, unsigned max_level, float p, int seed)
 {
 	/* head and tail are guard nodes, so they should have pointers for all the
 	 * levels. If we need to update the max_level, we need to update these as
@@ -111,9 +117,16 @@ sla_init(sla_t *sla, unsigned max_level, float p)
 	sla->head = do_sla_node_alloc(max_level + 1, NULL, 0);
 	sla->tail = do_sla_node_alloc(max_level + 1, NULL, 0);
 	sla->p = p;
-	sla->seed = time(NULL);
+	sla->seed = seed;
 	sla->max_level = max_level;
 	do_sla_init(sla);
+}
+
+/* initialize a skiplist array */
+void
+sla_init(sla_t *sla, unsigned max_level, float p)
+{
+	sla_init_seed(sla, max_level, p, time(NULL));
 }
 
 void
@@ -144,16 +157,6 @@ sla_print(sla_t *sla)
 {
 	printf("sla: %p total_size: %lu cur_level: %u\n", sla, sla->total_size, sla->cur_level);
 
-	/*
-	sla_node_t *n;
-	printf("    (%9p)", sla->head);
-	sla_for_each(sla, 0, n) {
-		printf("     (%9p)", n);
-	}
-	printf("     (%9p)", sla->tail);
-	printf("\n");
-	*/
-
 	for (int i = sla->cur_level - 1; i >= 0; i--) {
 		unsigned long cnt __attribute__((unused));
 		cnt = 0;
@@ -182,39 +185,41 @@ sla_print(sla_t *sla)
 		}
 		printf("| %u\n", SLA_NODE_CNT(sla->tail, i));
 	}
+
+	sla_node_t *n;
+	printf("    (%9p)", sla->head);
+	sla_for_each(sla, 0, n) {
+		printf("     (%9p)", n);
+	}
+	printf("     (%9p)", sla->tail);
+	printf("\n");
+
 }
 
-
-/* find the node responsible for key.
- *  - return the node that contains the key
- *  - the offset of the value in this node is placed on offset */
-sla_node_t *
-sla_find(sla_t *sla, size_t key, size_t *chunk_off)
+static sla_node_t *
+sla_do_find(sla_node_t *node, int lvl, size_t idx, size_t key, size_t *chunk_off)
 {
-	sla_node_t *n     = sla->head;
-	size_t idx = 0, next_e, next_s;
+	size_t next_e, next_s;
 
-	if (key >= sla->total_size) {
-		return NULL;
-	}
-
-	int i = sla->cur_level - 1;
 	do { /* iterate all levels */
 		for (;;) {
 			/* next node covers the range: [next_s, next_e) */
-			sla_node_t *next = sla_node_next(n, i);
-			next_e = idx + SLA_NODE_CNT(next, i);
+			sla_node_t *next = sla_node_next(node, lvl);
+			next_e = idx + SLA_NODE_CNT(next, lvl);
 			next_s = next_e - SLA_NODE_NITEMS(next);
 
 			/* key is before next node, go down a level */
 			if (key < next_s)
 				break;
 
-			if (next == sla->tail) {
-				printf("something's wrong: next:%p i:%d key:%lu\n", next, i, key);
-				assert(0);
+			/* sanity check */
+			if (next->chunk == NULL) {
+				printf("something's wrong: next:%p lvl:%d key:%lu\n", next, lvl, key);
+				abort();
 			}
-			n = next;
+
+			node = next;
+
 			/* key is in [next_s, next_e), return node */
 			if (key < next_e)
 				goto end;
@@ -222,13 +227,24 @@ sla_find(sla_t *sla, size_t key, size_t *chunk_off)
 			/* key is after next node, continue iteration */
 			idx = next_e;
 		}
-	} while (--i >= 0);
+	} while (--lvl >= 0);
 	assert(0 && "We didn't found a node -- something's wrong");
-
 end:
 	if (chunk_off)
 		*chunk_off = key - next_s;
-	return n;
+	return node;
+}
+
+/* find the node responsible for key.
+ *  - return the node that contains the key
+ *  - the offset of the value in this node is placed on offset */
+sla_node_t *
+sla_find(sla_t *sla, size_t key, size_t *chunk_off)
+{
+	if (key >= sla->total_size)
+		return NULL;
+
+	return sla_do_find(sla->head, sla->cur_level -1, 0, key, chunk_off);
 }
 
 /* sla_traverse set the update path for a specific key, and return count of the
@@ -673,7 +689,118 @@ sla_copyto(sla_t *sla, char *src, size_t len, size_t alloc_grain)
 	}
 }
 
-static void __attribute__((unused))
+// this is for testing
+void
+sla_copyto_rand(sla_t *sla, char *src, size_t len,
+                size_t alloc_grain_min, size_t alloc_grain_max)
+{
+	size_t clen;
+
+	clen = sla_append_tailnode(sla, src, len);
+	src += clen;
+	len -= clen;
+
+	unsigned int seed = sla->seed;
+	while (len > 0) {
+		assert(sla_tailnode_full(sla));
+		size_t size = randi(&seed, alloc_grain_max, alloc_grain_min);
+		char *buff = xmalloc(size);
+		unsigned lvl;
+		sla_node_t *node = sla_node_alloc(sla, buff, size, &lvl);
+		sla_append_node(sla, node, lvl);
+		clen = sla_append_tailnode(sla, src, len);
+		assert(clen > 0);
+		src += clen;
+		len -= clen;
+	}
+}
+
+/**
+ * Ponter nodes:
+ *
+ * Ponter nodes are special nodes, used to implement slices. Essentially they
+ * allow to start a search from a different point in the SLA. They are similar
+ * to head nodes, but they have a meaningful cnt field on their forward
+ * pointers. The cnt is the _total_ cnt from the original head of the sla.
+ *
+ * head nodes have a size to accomodate ->max_level, since pointers do not
+ * change, having a size to accomodate ->cur_level should work OK.
+ *
+ * Pointers will not work correctly if you break the structure of an SLA --
+ * i.e., by doing an SLA split. They will probably work OK if you just append
+ * data. Note that in this case, there will a benign incosistency when nodes are
+ * added with a level for which the pointer points to tail.
+ */
+
+// set a pointer to start at @idx
+void
+sla_ptr_set(sla_t *sla, size_t key, sla_node_t *ptr)
+{
+	sla_node_t *n = sla->head;
+	size_t idx = 0, next_e;
+	assert(key < sla->total_size);
+
+	int i = sla->cur_level - 1;
+	do { // iterate all levels
+		for (;;) {
+			/* next node covers the range: [next_s, next_e) */
+			sla_node_t *next = sla_node_next(n, i);
+			next_e = idx + SLA_NODE_CNT(next, i);
+			//next_s = next_e - SLA_NODE_NITEMS(next);
+			// key is before next node, go down a level
+			if (key < next_e) {
+				ptr->forward[i].node = next;
+				ptr->forward[i].cnt = idx;
+				break;
+			}
+			// sanity check
+			if (next == sla->tail) {
+				printf("something's wrong: next:%p i:%d key:%lu\n", next, i, key);
+				abort();
+			}
+
+			/* key is after next node, continue */
+			n = next;
+			idx = next_e;
+		}
+	} while (--i >=0);
+	return;
+}
+
+// find a node based on a pointer
+sla_node_t *
+sla_ptr_find(sla_t *sla, sla_node_t *ptr, size_t key, size_t *chunk_off)
+{
+	assert(key >= SLA_NODE_CNT(ptr, 0));
+	assert(key <  sla->total_size);
+
+	size_t x_start, x_end;
+	sla_node_t *ret, *x=NULL;
+
+	int cur_lvl = sla->cur_level, lvl;
+	for (lvl = cur_lvl -1; lvl < cur_lvl; lvl--) { // backwards
+		x = sla_node_next(ptr, lvl);
+		x_end = SLA_NODE_CNT(ptr, lvl) + SLA_NODE_CNT(x, lvl);
+		x_start = x_end - SLA_NODE_CNT(x, 0);
+		//printf("x_start=%lu x_end=%lu lvl=%d\n", x_start, x_end, lvl);
+		if (key >= x_end) { // key beyond next node
+			break;
+		} else if (key >= x_start) { // key in this node
+			if (chunk_off)
+				*chunk_off = key - x_start;
+			ret = x;
+			goto end;
+		}
+	}
+	size_t idx = x_end;
+	//printf("x=%p lvl=%d idx=%lu\n", x, lvl, idx);
+	ret = sla_do_find(x, lvl, idx, key, chunk_off);
+	assert(lvl < cur_lvl); // we should not run out of levels
+end:
+	return ret;
+}
+
+void
 sla_print_chars(sla_t *sla)
 {
 	sla_node_t *node;

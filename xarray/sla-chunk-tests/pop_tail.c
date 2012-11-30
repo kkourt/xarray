@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stddef.h>
+#include <assert.h>
 #include "sla-chunk.h"
 
 
@@ -16,6 +17,7 @@ int main(int argc, const char *argv[])
 	sla_copyto(&sla, buff, sizeof(buff), alloc_chunk);
 	sla_print(&sla);
 	ret = sla_pop_tailnode(&sla, &pop_size);
+	assert(ret);
 	sla_print(&sla);
 	return 0;
 }

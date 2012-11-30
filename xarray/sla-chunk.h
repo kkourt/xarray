@@ -135,11 +135,16 @@ sla_node_init(sla_node_t *node, unsigned lvl,
 sla_node_t *
 sla_node_alloc(sla_t *sla, void *chunk, size_t chunk_size, unsigned *lvl_ret);
 
+sla_node_t *
+do_sla_node_alloc(unsigned lvl, void *chunk, size_t chunk_size);
+
 /**
  * sla_init: initialize an sla
  *  this will allocate memory (head and tail), call sla_destroy() to release it.
  */
 void sla_init(sla_t *sla, unsigned int max_level, float p);
+
+void sla_init_seed(sla_t *sla, unsigned int max_level, float p, int seed);
 
 /**
  * sla_destroy: release memory allocated in sla_init() (and only that)
@@ -189,6 +194,8 @@ char *
 sla_append_tailnode__(sla_t *sla, size_t *len);
 
 void sla_copyto(sla_t *sla, char *src, size_t len, size_t alloc_grain);
+void sla_copyto_rand(sla_t *sla, char *src, size_t len,
+                     size_t alloc_grain_min, size_t alloc_grain_max);
 
 void
 sla_split_coarse(sla_t *sla, sla_t *sla1, sla_t *sla2, size_t offset);
@@ -215,5 +222,14 @@ sla_tailnode_full(sla_t *sla)
  * returns a pointer to data popped
  */
 char *sla_pop_tailnode(sla_t *sla, size_t *len);
+
+void sla_print_chars(sla_t *sla);
+
+
+void
+sla_ptr_set(sla_t *sla, size_t idx, sla_node_t *ptr);
+sla_node_t *
+sla_ptr_find(sla_t *sla, sla_node_t *ptr, size_t key, size_t *chunk_off);
+
 
 #endif /* SLA_H__ */

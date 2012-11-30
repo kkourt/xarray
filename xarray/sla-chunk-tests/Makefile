@@ -4,7 +4,7 @@
 SLA_DIR      = ..
 SLA_MAKE_DIR = ../..
 CC           = gcc
-CFLAGS       = -Wall -O2  -I$(SLA_DIR)
+CFLAGS       = -Wall -O2  -I$(SLA_DIR) -std=c99
 
 #CFLAGS      += -Wall -Wno-format-y2k -W -Wstrict-prototypes \
 #               -Wmissing-prototypes -Wpointer-arith -Wreturn-type \
@@ -22,17 +22,14 @@ all: $(progs)
 $(SLA_OBJ):
 	make -C $(SLA_MAKE_DIR)
 
-%: %.o $(SLA_OBJ)
-	$(CC) $(CFLAGS) -lpthread $^ -o $@
-
-%.o: %.c
-	$(CC) $(CFLAGS)  -c $< -o $@
-
 %.s: %.c
 	$(CC) $(CFLAGS) -fverbose-asm -S $<
 
 %.i: %.c
 	$(CC) $(CFLAGS) -E $< > $@
+
+%:: %.c $(SLA_OBJ)
+	$(CC) $(CFLAGS) -lpthread $^ -o $@
 
 clean:
 	rm -rf $(progs)  *.s *.o
