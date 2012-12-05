@@ -356,6 +356,7 @@ main(int argc, const char *argv[])
 	rle_stats_create(nthreads);
 
 	tsc_t total_ticks;
+	uint64_t t;
 	/*
 	 * start RLE
 	 */
@@ -363,7 +364,8 @@ main(int argc, const char *argv[])
 	rle_new = rle_encode(&syms_sl);
 	//rle_print(rle_new);
 	tsc_pause(&total_ticks);
-	printf("rle_encode:         %s ticks\n", ul_hstr(tsc_getticks(&total_ticks)));
+	t = tsc_getticks(&total_ticks);
+	printf("rle_encode:         %s ticks [%lu]\n", ul_hstr(t), t);
 	if (rle_cmp(rle, rle_new) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
@@ -388,7 +390,8 @@ main(int argc, const char *argv[])
 	rle_rec = cilk_spawn rle_encode_rec(&syms_sl);
 	cilk_sync;
 	tsc_pause(&total_ticks);
-	printf("rle_encode_rec:     %s ticks\n", ul_hstr(tsc_getticks(&total_ticks)));
+	t = tsc_getticks(&total_ticks);
+	printf("rle_encode_rec:     %s ticks [%lu]\n", ul_hstr(t), t);
 
 	rle_stats_report(nthreads, tsc_getticks(&total_ticks));
 	rle_stats_destroy();
@@ -418,5 +421,6 @@ main(int argc, const char *argv[])
 	*/
 
 
+	printf("DONE\n");
 	return 0;
 }
