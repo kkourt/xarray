@@ -14,3 +14,8 @@ xarray/sla-chunk-tests/find
 xarray/sla-chunk-tests/ptr
 xarray/sla-chunk-tests/pop_tail
 xarray/sla-chunk-tests/ptr-nextchunk
+Temp-C
+Temp-cilk
+Temp-results
+perf.data
+perf.data.old
