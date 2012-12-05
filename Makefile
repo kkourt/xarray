@@ -1,15 +1,20 @@
 .PHONY: all
 .PHONY: clean
 
-CC                 = gcc
+CILKDIR            = /usr/src/other/cilkplus.install
+
+CC                 = $(CILKDIR)/bin/gcc
+#CC                 = gcc
 CFLAGS             = -Wall -O2 -I. -I./xarray -std=c99 -ggdb3 -D_GNU_SOURCE
 CFLAGS            += -DNDEBUG
 LDFLAGS            =
 
+## tcmalloc
+GPERFDIR           = /home/netos/tools/akourtis/gperftools/install
 CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
-LDFLAGS           += -ltcmalloc_minimal
+CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
+LDFLAGS           += -ltcmalloc -L$(GPERFDIR)/lib -Xlinker -rpath=$(GPERFDIR)/lib
 
-CILKDIR            = /usr/src/other/cilkplus.install
 CILKCC             = $(CILKDIR)/bin/gcc
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
