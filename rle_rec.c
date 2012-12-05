@@ -12,6 +12,9 @@
 #define YES_CILK
 #endif
 
+#include "tsc.h"
+#include "misc.h"
+
 struct rle_node {
 	char   symbol;
 	unsigned long freq;
@@ -273,15 +276,13 @@ rle_cmp(struct rle_head *rle1, struct rle_head *rle2)
 	return 0;
 }
 
-#include "timer.h"
-
 int
 main(int argc, const char *argv[])
 {
 	struct rle_head *rle, *rle_new, *rle_rec;
 	unsigned long syms_nr, rles_nr;
 	char *symbols, *rle_rec_limit_str;
-	xtimer_t t;
+	tsc_t t;
 
 	/*
 	#ifdef YES_CILK
@@ -315,10 +316,11 @@ main(int argc, const char *argv[])
 	#endif
 	symbols = rle_decode(rle, syms_nr);
 
-	timer_init(&t); timer_start(&t);
+	tsc_init(&t); tsc_start(&t);
 	rle_new = rle_encode(symbols, syms_nr);
 	//rle_print(rle_new);
-	timer_pause(&t); printf("rle_encode:     %lf secs\n", timer_secs(&t));
+	tsc_pause(&t);
+	printf("rle_encode:         %s ticks\n", ul_hstr(tsc_getticks(&t)));
 	if (rle_cmp(rle, rle_new) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
@@ -333,11 +335,11 @@ main(int argc, const char *argv[])
 	#endif
 	*/
 
-	timer_init(&t); timer_start(&t);
+	tsc_init(&t); tsc_start(&t);
 	rle_rec = cilk_spawn rle_encode_rec(symbols, syms_nr);
 	cilk_sync;
-	timer_pause(&t);
-	printf("rle_encode_rec: %lf secs\n", timer_secs(&t));
+	tsc_pause(&t);
+	printf("rle_encode_rec:     %s ticks\n", ul_hstr(tsc_getticks(&t)));
 
 	/*
 	#ifdef YES_CILK
