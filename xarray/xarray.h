@@ -16,7 +16,6 @@ typedef void xelem_t;
 struct xarray_init {
 	// @elem_size: size of elements
 	size_t elem_size;
-	// we coudn use a union to save memory, but we would need to do #ifdefs
 	struct {
 		/* dynarray-specific parameters:
 		 *  @elems_alloc_grain: allocation grain in elements
@@ -40,6 +39,7 @@ struct xarray_init {
 };
 
 /**
+ * Indexes:
  * idx:
  *    0 : first
  *    1 : second
@@ -47,6 +47,9 @@ struct xarray_init {
  *   -2 : second to last
  *   -1 : last
  *
+ */
+
+/*
  * concatenate two arrays
  *  return the concatenated array
  *   @arr1 and @arr2 become invalid
@@ -60,9 +63,12 @@ void      xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2);
 static size_t   xarray_size(xarray_t *xarr);
 static size_t   xarray_elem_size(xarray_t *xarr);
 static xelem_t *xarray_get(xarray_t *xarr, long idx);
-static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_size);
+static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *nelems);
 static xelem_t *xarray_append(xarray_t *xarr);
-//static xelem_t *xarray_append_chunk(xarray_t *xarr, size_t elems_nr, size_t *chunk_size);
+
+static xelem_t *xarray_append_prepare(xarray_t *xarr, size_t *nelems);
+static void     xarray_append_finalize(xarray_t *xarr, size_t nelems);
+
 static xelem_t *xarray_pop(xarray_t *xarr, size_t elems);
 
 struct xslice_s;
@@ -70,10 +76,19 @@ typedef struct xslice_s xslice_t;
 
 static void     xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl);
 static xelem_t *xslice_get(xslice_t *xslice, long idx);
-static xelem_t *xslice_getchunk(xslice_t *xslice, long idx, size_t *chunk_size);
+static xelem_t *xslice_getchunk(xslice_t *xslice, long idx, size_t *nelems);
+static xelem_t *xslice_getnextchunk(xslice_t *xslice, size_t *nelems);
 static size_t   xslice_size(xslice_t *xslice);
 static void     xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2);
 
+static inline long
+xarr_idx(xarray_t *xarr, long i)
+{
+	size_t xarr_size = xarray_size(xarr);
+	if (i < 0)
+		i = xarr_size + i;
+	return i;
+}
 
 #if defined(XARRAY_DA__)
 #include "xarray_dynarray.h"
@@ -88,9 +103,19 @@ struct xslice_s {
 	xarray_t *xarr;
 };
 
+static inline long
+xsl_idx(xslice_t *xsl, long i)
+{
+	size_t xsl_size = xsl->len;
+	if (i < 0)
+		i = xsl_size + i;
+	return i;
+}
+
 static inline void
 xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl)
 {
+	idx = xarr_idx(xarr, idx);
 	assert(idx + len <= xarray_size(xarr));
 	xsl->idx = idx;
 	xsl->len = len;
@@ -101,21 +126,48 @@ xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl)
 static inline xelem_t *
 xslice_get(xslice_t *xsl, long idx)
 {
+	idx = xsl_idx(xsl, idx);
 	return idx < xsl->len ? xarray_get(xsl->xarr, xsl->idx + idx) : NULL;
 }
 
 static inline xelem_t *
-xslice_getchunk(xslice_t *xsl, long idx, size_t *chunk_size)
+xslice_getnext(xslice_t *xsl)
+{
+	xelem_t *ret = NULL;
+	if (xsl->len > 0) {
+		ret = xarray_get(xsl->xarr, xsl->idx);
+		xsl->idx++;
+		xsl->len--;
+	} else ret = NULL;
+
+	return ret;
+}
+
+static inline xelem_t *
+xslice_getchunk(xslice_t *xsl, long idx, size_t *chunk_elems)
 {
 	xelem_t *ret;
+	idx = xsl_idx(xsl, idx);
 	if (idx < xsl->len) {
 		size_t cs;
 		ret = xarray_getchunk(xsl->xarr, xsl->idx + idx, &cs);
-		*chunk_size = MIN(cs, xsl->len - idx);
+		*chunk_elems = MIN(cs, xsl->len - idx);
 	} else {
 		ret = NULL;
-		*chunk_size = 0;
+		*chunk_elems = 0;
 	}
+	return ret;
+}
+
+static inline xelem_t *
+xslice_getnextchunk(xslice_t *xslice, size_t *nelems)
+{
+	xelem_t *ret;
+
+	ret = xslice_getchunk(xslice, 0, nelems);
+	assert(*nelems <= xslice->len);
+	xslice->idx += *nelems;
+	xslice->len -= *nelems;
 	return ret;
 }
 

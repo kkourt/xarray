@@ -227,9 +227,19 @@ void sla_print_chars(sla_t *sla);
 
 
 void
-sla_ptr_set(sla_t *sla, size_t idx, sla_fwrd_t ptr[]);
+sla_setptr(sla_t *sla, size_t idx, sla_fwrd_t ptr[]);
 sla_node_t *
 sla_ptr_find(sla_t *sla, sla_fwrd_t ptr[], size_t key, size_t *chunk_off);
+void
+sla_ptr_setptr(sla_t *sla, const sla_fwrd_t ptr_in[], size_t key,
+               sla_fwrd_t ptr_out[]);
+sla_node_t *
+sla_ptr_nextchunk(sla_t *sla, sla_fwrd_t ptr[], size_t *node_key);
 
+int
+sla_ptr_equal(sla_fwrd_t ptr1[], sla_fwrd_t ptr2[], unsigned cur_level);
+
+void
+sla_ptr_print(sla_fwrd_t ptr[], unsigned cur_level);
 
 #endif /* SLA_H__ */

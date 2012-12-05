@@ -730,21 +730,19 @@ sla_copyto_rand(sla_t *sla, char *src, size_t len,
  * i.e., by doing an SLA split. They will probably work OK if you just append
  * data. Note that in this case, there will a benign incosistency when nodes are
  * added with a level for which the pointer points to tail.
+ * XXX: Another structural issue seems to be changing ->cur_level. Need to check
+ * up on that...
  */
 
-// set a pointer to start at @idx
-void
-sla_ptr_set(sla_t *sla, size_t key, sla_fwrd_t ptr[])
+static void
+sla_dosetptr(sla_node_t *node, size_t key, int lvl, size_t idx, sla_fwrd_t ptr[])
 {
-	sla_node_t *n = sla->head;
-	size_t idx = 0, next_e;
-	assert(key < sla->total_size);
-
-	int i = sla->cur_level - 1;
+	size_t next_e;
+	int i = lvl;
 	do { // iterate all levels
 		for (;;) {
 			/* next node covers the range: [next_s, next_e) */
-			sla_node_t *next = sla_node_next(n, i);
+			sla_node_t *next = sla_node_next(node, i);
 			next_e = idx + SLA_NODE_CNT(next, i);
 			//next_s = next_e - SLA_NODE_NITEMS(next);
 			// key is before next node, go down a level
@@ -753,18 +751,26 @@ sla_ptr_set(sla_t *sla, size_t key, sla_fwrd_t ptr[])
 				ptr[i].cnt = idx;
 				break;
 			}
-			// sanity check
-			if (next == sla->tail) {
+			// not-so-sane way of checking whether we reached tail
+			if (next->chunk == NULL) {
 				printf("something's wrong: next:%p i:%d key:%lu\n", next, i, key);
 				abort();
 			}
 
 			/* key is after next node, continue */
-			n = next;
+			node = next;
 			idx = next_e;
 		}
 	} while (--i >=0);
 	return;
+}
+
+// set a pointer to start at @idx
+void
+sla_setptr(sla_t *sla, size_t key, sla_fwrd_t ptr[])
+{
+	assert(key < sla->total_size);
+	sla_dosetptr(sla->head, key, sla->cur_level - 1, 0, ptr);
 }
 
 // find a node based on a pointer
@@ -777,13 +783,14 @@ sla_ptr_find(sla_t *sla, sla_fwrd_t ptr[], size_t key, size_t *chunk_off)
 	size_t x_start, x_end;
 	sla_node_t *ret, *x=NULL;
 
+	// find an actual node to start search from
 	int cur_lvl = sla->cur_level, lvl;
 	for (lvl = cur_lvl -1; lvl < cur_lvl; lvl--) { // backwards
 		x = ptr[lvl].node;
 		x_end = ptr[lvl].cnt + SLA_NODE_CNT(x, lvl);
 		x_start = x_end - SLA_NODE_CNT(x, 0);
 		//printf("x_start=%lu x_end=%lu lvl=%d\n", x_start, x_end, lvl);
-		if (key >= x_end) { // key beyond next node
+		if (key >= x_end) { // key beyond x
 			break;
 		} else if (key >= x_start) { // key in this node
 			if (chunk_off)
@@ -798,6 +805,89 @@ sla_ptr_find(sla_t *sla, sla_fwrd_t ptr[], size_t key, size_t *chunk_off)
 	assert(lvl < cur_lvl); // we should not run out of levels
 end:
 	return ret;
+}
+
+sla_node_t *
+sla_ptr_nextchunk(sla_t *sla, sla_fwrd_t ptr[], size_t *node_key)
+{
+	sla_node_t *node = ptr[0].node, *next;
+	if (node == sla->tail)
+		return NULL;
+
+	*node_key = ptr[0].cnt;
+	for (int lvl=0; lvl < sla->cur_level; lvl++) {
+		if (ptr[lvl].node != node)
+			break;
+
+		ptr[lvl].node = next = SLA_NODE_NEXT(node, lvl);
+		ptr[lvl].cnt += SLA_NODE_CNT(node, lvl);
+		               //+ SLA_NODE_CNT(next, lvl) - SLA_NODE_CNT(next, 0);
+	}
+
+	return node;
+}
+
+// ptr_out == ptr_in seems be to OK, but need to test it
+void
+sla_ptr_setptr(sla_t *sla, const sla_fwrd_t ptr_in[], size_t key,
+               sla_fwrd_t ptr_out[])
+{
+	assert(key >= ptr_in[0].cnt);
+	assert(key <  sla->total_size);
+
+	size_t x_start, x_end, idx;
+	sla_node_t *x=NULL;
+
+	// find an actual node to start search from
+	int lvl = sla->cur_level - 1;
+	do { // iterate all levels
+		x   = ptr_in[lvl].node;
+		idx = ptr_in[lvl].cnt;
+		for (;;) {
+			x_end = idx + SLA_NODE_CNT(x, lvl);
+			x_start = x_end - SLA_NODE_CNT(x, 0);
+			if (key >= x_end) {
+				assert(x != sla->tail);
+				x   = SLA_NODE_NEXT(x, lvl);
+				idx = x_end;
+				continue;
+			} else if (key >= x_start) {
+				ptr_out[lvl].node = x;
+				ptr_out[lvl].cnt = idx;
+				break;
+			} else {
+				ptr_out[lvl].node = x;
+				ptr_out[lvl].cnt = idx;
+				break;
+			}
+		}
+	} while (--lvl >= 0);
+
+	return;
+}
+
+int
+sla_ptr_equal(sla_fwrd_t ptr1[], sla_fwrd_t ptr2[], unsigned cur_level)
+{
+	for (unsigned i=0; i<cur_level; i++) {
+		if (ptr1[i].node != ptr2[i].node) {
+			printf("ptr1[%u].node=%p =/= %p=ptr2[%u].node\n", i, ptr1[i].node, ptr2[i].node, i);
+			return -1;
+		}
+		if (ptr1[i].cnt != ptr2[i].cnt) {
+			printf("ptr1[%u].cnt=%u =/= %u=ptr2[%u].cnt\n", i, ptr1[i].cnt, ptr2[i].cnt, i);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+void
+sla_ptr_print(sla_fwrd_t ptr[], unsigned cur_level)
+{
+	for (unsigned i=cur_level - 1; i<cur_level; i--) // backwards
+		printf("  p[%u].node=%p p[%u].cnt=%3u\n", i, ptr[i].node, i, ptr[i].cnt);
 }
 
 void

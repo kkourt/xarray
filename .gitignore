@@ -10,4 +10,7 @@ rle_rec_xarray_da
 prle_rec_xarray_da
 rle_rec_xarray_sla
 prle_rec_xarray_sla
+xarray/sla-chunk-tests/find
+xarray/sla-chunk-tests/ptr
 xarray/sla-chunk-tests/pop_tail
+xarray/sla-chunk-tests/ptr-nextchunk

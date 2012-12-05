@@ -12,15 +12,27 @@
 #define YES_CILK
 #endif
 
-#include <xarray.h>
 #include "rle_rec_stats.h"
-
 DECLARE_RLE_STATS
 
-static unsigned long rle_rec_limit =  256;
-static unsigned long rle_xarr_grain = 256;
-static unsigned long rle_sla_max_level = 5;
-static float         rle_sla_p = 0.5;
+static inline unsigned getmyid(void)
+{
+	unsigned ret = 0;
+	#if defined(YES_CILK)
+	ret = __cilkrts_get_worker_number();
+	#endif
+	return ret;
+}
+
+
+#include <xarray.h>
+
+// parameters
+static unsigned long rle_rec_limit   = 256;
+static unsigned long xarr_rle_grain  = 32;
+static unsigned long xarr_syms_grain = 256;
+static unsigned long sla_max_level = 5;
+static float         sla_p = 0.5;
 
 
 struct rle_node {
@@ -84,13 +96,13 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(char),
 		.da = {
-			.elems_alloc_grain = rle_xarr_grain,
+			.elems_alloc_grain = xarr_syms_grain,
 			.elems_init = syms_nr
 		},
 		.sla = {
-			.p                =  rle_sla_p,
-			.max_level        =  rle_sla_max_level,
-			.elems_chunk_size =  rle_xarr_grain
+			.p                =  sla_p,
+			.max_level        =  sla_max_level,
+			.elems_chunk_size =  xarr_syms_grain,
 		}
 	});
 
@@ -107,67 +119,82 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 	return ret;
 }
 
-static inline unsigned getmyid(void)
+static xarray_t *
+rle_create_xarr(void)
 {
-	unsigned ret = 0;
-	#if defined(YES_CILK)
-	ret = __cilkrts_get_worker_number();
-	#endif
+	xarray_t *ret = xarray_create(&(struct xarray_init){
+		.elem_size = sizeof(struct rle_node),
+		.da = {
+			.elems_alloc_grain = xarr_rle_grain,
+			.elems_init = xarr_rle_grain,
+		},
+		.sla = {
+			.p                =  sla_p,
+			.max_level        =  sla_max_level,
+			.elems_chunk_size =  xarr_rle_grain,
+		}
+	});
+	assert(xarray_elem_size(ret) == sizeof(struct rle_node));
 	return ret;
 }
-
-
 
 xarray_t *
 rle_encode(xslice_t *syms)
 {
 	RLE_TIMER_START(rle_encode, getmyid());
 	char prev, curr;
+	xarray_t *rles;
 
 	RLE_TIMER_START(rle_alloc, getmyid());
-	xarray_t *ret = xarray_create(&(struct xarray_init){
-		.elem_size = sizeof(struct rle_node),
-		.da = {
-			.elems_alloc_grain = rle_xarr_grain,
-			.elems_init = rle_xarr_grain
-		},
-		.sla = {
-			.p                =  rle_sla_p,
-			.max_level        =  rle_sla_max_level,
-			.elems_chunk_size =  rle_xarr_grain
-		}
-	});
-	assert(xarray_elem_size(ret) == sizeof(struct rle_node));
+	rles = rle_create_xarr();
 	RLE_TIMER_PAUSE(rle_alloc, getmyid());
 
-	RLE_TIMER_START(rle_encode_loop, getmyid());
-	prev = *((char *)xslice_get(syms, 0));
-	size_t freq = 1, idx = 1, chunk_size = 0;
+	prev = *((char *)xslice_getnext(syms));
+	size_t freq = 1;
 
+	const char *syms_ch;             // symbols chunk
+	struct rle_node *rles_ch;        // rles chunk
+	size_t syms_ch_len, rles_ch_len; // chunk sizes
+	size_t rles_ch_idx=0;            // rles chunk size
+
+	void append_rle(char symbol, size_t freq) {
+		if (rles_ch_idx >= rles_ch_len) {
+			assert(rles_ch_idx == rles_ch_len);
+			xarray_append_finalize(rles, rles_ch_idx);
+			rles_ch = xarray_append_prepare(rles, &rles_ch_len);
+			rles_ch_idx = 0;
+		}
+		rles_ch[rles_ch_idx].symbol = symbol;
+		rles_ch[rles_ch_idx].freq = freq;
+		rles_ch_idx++;
+	}
+
+
+	RLE_TIMER_START(rle_encode_loop, getmyid());
+	rles_ch = xarray_append_prepare(rles, &rles_ch_len);
 	while (1) {
-		const char *chunk = xslice_getchunk(syms, idx, &chunk_size);
-		if (chunk_size == 0)
+		syms_ch = xslice_getnextchunk(syms, &syms_ch_len);
+		if (syms_ch_len == 0)
 			break;
 
-		for (size_t i=0; i<chunk_size; i++) {
-			curr = chunk[i];
+		for (size_t i=0; i<syms_ch_len; i++) {
+			curr = syms_ch[i];
 			if (curr == prev) {
 				freq++;
-			} else {
-				xarray_append_rle(ret, prev, freq);
+			} else  {
+				append_rle(prev, freq);
 				prev = curr;
 				freq = 1;
 			}
 		}
-
-		idx += chunk_size;
 	}
-	xarray_append_rle(ret, prev, freq);
+	append_rle(prev, freq);
+	xarray_append_finalize(rles, rles_ch_idx);
 	RLE_TIMER_PAUSE(rle_encode_loop, getmyid());
 
-	xarray_verify(ret);
 	RLE_TIMER_PAUSE(rle_encode, getmyid());
-	return ret;
+	xarray_verify(rles);
+	return rles;
 }
 
 xarray_t *
@@ -243,13 +270,14 @@ rle_cmp(xarray_t *rle1, xarray_t *rle2)
 {
 	size_t rle1_size = xarray_size(rle1);
 	size_t rle2_size = xarray_size(rle2);
+	int ret = 1;
 	if (rle1_size != rle2_size) {
 		printf("size mismatch: rle1:%lu rle2:%lu\n",
 		       rle1_size, rle2_size);
-		return 0;
+		ret = 0;
 	}
 
-	for (size_t i=0; i<rle1_size; i++) {
+	for (size_t i=0; i<MIN(rle1_size, rle2_size); i++) {
 		struct rle_node *r1 = xarray_get(rle1, i);
 		struct rle_node *r2 = xarray_get(rle2, i);
 
@@ -271,7 +299,7 @@ rle_cmp(xarray_t *rle1, xarray_t *rle2)
 		}
 	}
 
-	return 1;
+	return ret;
 }
 
 int
@@ -289,32 +317,9 @@ main(int argc, const char *argv[])
 	*/
 
 
-	xarray_t *rle, *rle_rec, *rle_new;
-	rle = xarray_create(&(struct xarray_init) {
-		.elem_size = sizeof(struct rle_node),
-		.da = {
-			.elems_alloc_grain = rle_xarr_grain,
-			.elems_init = rle_xarr_grain
-		},
-		.sla = {
-			.p                =  rle_sla_p,
-			.max_level        =  rle_sla_max_level,
-			.elems_chunk_size =  rle_xarr_grain
-		}
-	});
-	rle_rec = xarray_create(&(struct xarray_init) {
-		.elem_size = sizeof(struct rle_node),
-		.da = {
-			.elems_alloc_grain = rle_xarr_grain,
-			.elems_init = rle_xarr_grain
-
-		},
-		.sla = {
-			.p                =  rle_sla_p,
-			.max_level        =  rle_sla_max_level,
-			.elems_chunk_size =  rle_xarr_grain
-		}
-	});
+	xarray_t __attribute__((unused)) *rle, *rle_rec, *rle_new;
+	rle = rle_create_xarr();
+	rle_rec = rle_create_xarr();
 
 	if ( (rle_rec_limit_str = getenv("RLE_REC_LIMIT")) != NULL) {
 		rle_rec_limit = atol(rle_rec_limit_str);
@@ -364,6 +369,7 @@ main(int argc, const char *argv[])
 		exit(1);
 	}
 	cilk_sync;
+	//rle_stats_report(nthreads, tsc_getticks(&total_ticks));
 
 	/*
 	#ifdef YES_CILK
@@ -396,10 +402,12 @@ main(int argc, const char *argv[])
 	*/
 
 	//rle_print(rle_rec);
-	if (0 && rle_cmp(rle, rle_rec) != 1) {
+	#if !defined(NDEBUG)
+	if (rle_cmp(rle, rle_rec) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
 	}
+	#endif
 
 	/*
 	#ifdef YES_CILK

@@ -72,4 +72,36 @@ dynarray_elem_size(struct dynarray *da)
 	return da->elem_size;
 }
 
+static inline void
+dynarray_expand(struct dynarray *da)
+{
+	size_t total;
+	da->elems_nr += da->alloc_grain;
+	//printf("old addr: %lu	 ", (unsigned long)da->elems);
+	//printf("expand realloc: %lu %lu %lu\n", da->next_idx, da->elems_nr, (da->next_idx+1)*da->elem_size);
+	total = da->elem_size*da->elems_nr;
+	da->elems = realloc(da->elems, total);
+	if (!da->elems) {
+		fprintf(stderr, "dynarray_expand: realloc failed [%lu]\n", total);
+		abort();
+	}
+	//printf("new addr: %lu\n", (unsigned long)da->elems);
+}
+
+
+// only check out of bounds for actual memory allocated
+static inline void *
+dynarray_get__(struct dynarray *da, unsigned long idx)
+{
+	unsigned long addr = (unsigned long) da->elems;
+	if (idx >= da->elems_nr) {
+		fprintf(stderr, "dynarray_get__: out of bounds idx=%lu next_idx=%lu\n",
+		                idx, da->next_idx);
+		//print_trace();
+		abort();
+	}
+	addr += da->elem_size*idx;
+	//printf("dynarray_get: addr:%p next_idx:%lu idx:%lu returning 0x%lx\n", da->elems, da->next_idx, idx, addr);
+	return (void *)addr;
+}
 #endif	/* DYNARRAY_H__ */

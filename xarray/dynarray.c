@@ -123,25 +123,11 @@ void *dynarray_get_last(struct dynarray *da)
 	return dynarray_get(da, da->next_idx-1);
 }
 
-static inline void dynarray_expand(struct dynarray *da)
-{
-	size_t total;
-	da->elems_nr += da->alloc_grain;
-	//printf("old addr: %lu	 ", (unsigned long)da->elems);
-	//printf("expand realloc: %lu %lu %lu\n", da->next_idx, da->elems_nr, (da->next_idx+1)*da->elem_size);
-	total = da->elem_size*da->elems_nr;
-	da->elems = realloc(da->elems, total);
-	if (!da->elems) {
-		fprintf(stderr, "dynarray_expand: realloc failed [%lu]\n", total);
-		assert(0);
-	}
-	//printf("new addr: %lu\n", (unsigned long)da->elems);
-}
-
 void *dynarray_alloc(struct dynarray *da)
 {
 	void *ret;
 	if (da->next_idx >= da->elems_nr) {
+		assert(da->next_idx == da->elems_nr);
 		dynarray_expand(da);
 	}
 

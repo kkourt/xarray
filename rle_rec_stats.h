@@ -18,6 +18,7 @@ struct rle_stats {
 	tsc_t rle_encode;
 	tsc_t rle_encode_loop;
 	tsc_t rle_alloc;
+	tsc_t sla_append_prepare;
 } __attribute__((aligned(64)));
 typedef struct rle_stats rle_stats_t;
 
@@ -64,6 +65,7 @@ rle_stats_do_report(const char *prefix, rle_stats_t *st, uint64_t total_ticks)
 	pr_ticks(rle_encode);
 	pr_ticks(rle_alloc);
 	pr_ticks(rle_encode_loop);
+	pr_ticks(sla_append_prepare);
 
 	#undef pr_ticks
 }

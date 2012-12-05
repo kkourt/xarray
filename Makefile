@@ -9,10 +9,11 @@ LDFLAGS            =
 CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
 LDFLAGS           += -ltcmalloc_minimal
 
-CILKCC             = /usr/src/other/cilkplus.install/bin/gcc
+CILKDIR            = /usr/src/other/cilkplus.install
+CILKCC             = $(CILKDIR)/bin/gcc
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
-CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=/usr/src/other/cilkplus.install/lib $(LDFLAGS)
+CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
 
 hdrs  =$(wildcard *.h)
 hdrs +=$(wildcard xarray/*.h)
