@@ -76,6 +76,8 @@ xarray_concat(xarray_t *arr1, xarray_t *arr2)
 
 	sla_concat(&arr1->sla, &arr2->sla);
 	arr1->elems_nr += arr2->elems_nr;
+
+	sla_destroy(&arr2->sla);
 	free(arr2);
 
 	xarray_verify(arr1);
