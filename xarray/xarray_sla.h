@@ -113,6 +113,17 @@ xarray_elem_size(xarray_t *xarr)
 }
 
 static inline xelem_t *
+xarray_getlast(xarray_t *xarr)
+{
+	sla_node_t *last;
+	size_t offset;
+
+	last = SLA_TAIL_NODE(&xarr->sla, 0);
+	offset = SLA_NODE_NITEMS(last) - xarr->elem_size;
+	return (xelem_t *)((char *)last->chunk + offset);
+}
+
+static inline xelem_t *
 xarray_get(xarray_t *xarr, long idx)
 {
 	size_t xarr_size = xarray_size(xarr);

@@ -30,6 +30,13 @@ xarray_verify(xarray_t *xarr)
 }
 
 static inline xelem_t *
+xarray_getlast(xarray_t *xarr)
+{
+	size_t da_size = dynarray_size(&xarr->da);
+	return dynarray_get(&xarr->da, da_size - 1);
+}
+
+static inline xelem_t *
 xarray_get(xarray_t *xarr, long i)
 {
 	size_t da_size = dynarray_size(&xarr->da);

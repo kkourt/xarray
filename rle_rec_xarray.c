@@ -223,7 +223,7 @@ rle_merge(xarray_t *rle1, xarray_t *rle2)
 	//printf("MERGING-------------------\n");
 	//printf("rle1\n"); rle_print(rle1);
 	//printf("rle2\n"); rle_print(rle2);
-	struct rle_node *rle1_lst = xarray_get(rle1, -1);
+	struct rle_node *rle1_lst = xarray_getlast(rle1);
 	struct rle_node *rle2_fst = xarray_get(rle2,  0);
 
 	if (rle1_lst->symbol == rle2_fst->symbol) {
