@@ -174,7 +174,7 @@ void sla_append_node(sla_t *sla, sla_node_t *node, int node_lvl);
  * returns head node or NULL
  * @lvl_ret: if not NULL, it will contain the level of the node
  */
-sla_node_t *sla_pop_node_head(sla_t *sla, unsigned *lvl_ret);
+sla_node_t *sla_pop_head(sla_t *sla, unsigned *lvl_ret);
 
 /**
  * sla_add_node_head(): add a node the the head of an sla

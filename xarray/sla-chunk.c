@@ -310,12 +310,21 @@ sla_add_node_head(sla_t *sla, sla_node_t *node, int node_lvl)
 
 /* decapitate sla */
 sla_node_t *
-sla_pop_node_head(sla_t *sla, unsigned *lvl_ret)
+sla_pop_head(sla_t *sla, unsigned *lvl_ret)
 {
 	sla_node_t *ret = SLA_HEAD_NODE(sla, 0);
 
 	if (ret == sla->tail) // sla empty
 		return NULL;
+
+	// find node level first
+	// (we could do it on the loops below, but it gets complicated)
+	if (lvl_ret) {
+		unsigned lvl = 0;
+		while (SLA_HEAD_NODE(sla, ++lvl) == ret)
+			;
+		*lvl_ret = lvl;
+	}
 
 	if (SLA_NODE_NEXT(ret, 0) == sla->tail) { // ret the only node in sla
 		assert(SLA_NODE_NITEMS(ret) == sla->total_size);
@@ -333,13 +342,10 @@ sla_pop_node_head(sla_t *sla, unsigned *lvl_ret)
 		if (nxt == sla->tail) {
 			assert(i != 0);
 			// level is empty, update current level
-			sla->cur_level = i-1;
+			sla->cur_level = i;
 			break;
 		}
 	}
-
-	if (lvl_ret)
-		*lvl_ret = i-1;
 
 	for ( ;i<sla->cur_level; i++) { // itereate remaining levels
 		struct sla_node *h __attribute__((unused)) = SLA_HEAD_NODE(sla, i);
