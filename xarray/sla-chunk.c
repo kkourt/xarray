@@ -475,7 +475,6 @@ sla_split_coarse(sla_t *sla, sla_t *sla1, sla_t *sla2, size_t offset)
 	return;
 }
 
-/* TODO: heuristically copy items */
 /*  sla1 will contain the concatenated sla
  *  sla2 will be empty
  */
@@ -484,6 +483,34 @@ sla_concat(sla_t *sla1, sla_t *sla2)
 {
 	assert(sla1->max_level == sla2->max_level &&
 	       "FIXME: realloc head and tail pointers");
+
+	// first we try to copy items if we can.
+	// We do it only if sla2 has a single node for now, because there seems
+	// to be a bug when we copy and sla2 has additional nodes
+	sla_node_t *sla1_tail = SLA_TAIL_NODE(sla1, 0);
+	sla_node_t *sla2_head = SLA_HEAD_NODE(sla2, 0);
+	size_t sla1_tcnt = SLA_NODE_NITEMS(sla1_tail);
+	size_t sla2_hcnt = SLA_NODE_NITEMS(sla2_head);
+	if (sla2->total_size == sla2_hcnt
+	    && sla1_tcnt + sla2_hcnt <= sla1_tail->chunk_size) {
+		sla_verify(sla1);
+		sla_verify(sla2);
+		size_t cpsize = sla2_hcnt;
+		sla_node_t *n = sla_pop_head(sla2, NULL);
+		assert(n == sla2_head);
+		assert(n != NULL);
+		assert(n->chunk != NULL);
+		void *dst = sla_append_tailnode__(sla1, &cpsize);
+		assert(cpsize == sla2_hcnt);
+		memcpy(dst, n->chunk, cpsize);
+		free(n->chunk); // XXX: need to do this right!
+		free(n);
+		assert(SLA_NODE_NITEMS(sla1_tail) == sla1_tcnt + sla2_hcnt);
+		sla_verify(sla1);
+		sla_verify(sla2);
+		assert(sla2->total_size == 0);
+		return;
+	}
 
 	unsigned int new_level = MAX(sla1->cur_level, sla2->cur_level);
 	for (unsigned int i = 0; i < new_level; i++) {
