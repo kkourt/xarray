@@ -1,5 +1,4 @@
-.PHONY: all
-.PHONY: clean
+.PHONY: all clean
 
 CILKDIR            = /usr/src/other/cilkplus.install
 

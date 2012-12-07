@@ -138,10 +138,12 @@ sla_destroy(sla_t *sla)
 
 void sla_verify(sla_t *sla)
 {
+#if !defined(NDEBUG)
 	for (unsigned int i = 0; i > sla->cur_level; i++) {
 		unsigned int cnt = 0;
 		sla_node_t *n;
 		sla_for_each(sla, i, n) {
+			assert(n != NULL);
 			cnt += SLA_NODE_CNT(n, i);
 			assert(cnt <= sla->total_size);
 		}
@@ -150,6 +152,7 @@ void sla_verify(sla_t *sla)
 		assert(cnt == sla->total_size);
 	}
 	assert(SLA_TAIL_CNT(sla, 0) == 0);
+#endif
 }
 
 void
@@ -214,7 +217,7 @@ sla_do_find(sla_node_t *node, int lvl, size_t idx, size_t key, size_t *chunk_off
 
 			/* sanity check */
 			if (next->chunk == NULL) {
-				printf("something's wrong: next:%p lvl:%d key:%lu\n", next, lvl, key);
+				fprintf(stderr, "something's wrong: next:%p lvl:%d key:%lu\n", next, lvl, key);
 				abort();
 			}
 
@@ -807,7 +810,7 @@ sla_dosetptr(sla_node_t *node, size_t key, int lvl, size_t idx, sla_fwrd_t ptr[]
 			}
 			// not-so-sane way of checking whether we reached tail
 			if (next->chunk == NULL) {
-				printf("something's wrong: next:%p i:%d key:%lu\n", next, i, key);
+				fprintf(stderr, "something's wrong: next:%p i:%d key:%lu\n", next, i, key);
 				abort();
 			}
 
