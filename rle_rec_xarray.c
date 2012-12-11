@@ -106,14 +106,28 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 		}
 	});
 
+	char *syms_ch;
+	size_t syms_ch_len, syms_ch_idx=0;
+	void append_sym(char symbol) {
+		if (syms_ch_idx >= syms_ch_len) {
+			assert(syms_ch_idx == syms_ch_len);
+			xarray_append_finalize(ret, syms_ch_idx);
+			syms_ch = xarray_append_prepare(ret, &syms_ch_len);
+			syms_ch_idx = 0;
+		}
+		syms_ch[syms_ch_idx] = symbol;
+		syms_ch_idx++;
+	}
+
 	size_t xarr_size = xarray_size(rle);
+	syms_ch = xarray_append_prepare(ret, &syms_ch_len);
 	for (size_t x=0; x<xarr_size; x++) {
 		struct rle_node *n = xarray_get(rle, x);
 		for (size_t i=0; i<n->freq; i++) {
-			char *p = xarray_append(ret);
-			*p = n->symbol;
+			append_sym(n->symbol);
 		}
 	}
+	xarray_append_finalize(ret, syms_ch_idx);
 
 	assert(xarray_size(ret) == syms_nr);
 	return ret;
@@ -350,6 +364,9 @@ main(int argc, const char *argv[])
 	});
 
 
+	rle_stats_create(nthreads);
+	rle_stats_init(nthreads);
+
 	xarray_t *syms;
 	TSC_REPORT_TICKS("rle_decode:",{
 		syms = rle_decode(rle, syms_nr);
@@ -357,8 +374,6 @@ main(int argc, const char *argv[])
 
 	xslice_t syms_sl;
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
-
-	rle_stats_create(nthreads);
 
 	/*
 	 * start RLE
