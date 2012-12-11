@@ -307,7 +307,6 @@ main(int argc, const char *argv[])
 {
 	unsigned long syms_nr, rles_nr;
 	char *rle_rec_limit_str;
-
 	/*
 	#ifdef YES_CILK
 	Cilk_time tm_begin, tm_elapsed;
@@ -334,43 +333,48 @@ main(int argc, const char *argv[])
 		rles_nr = 100000;
 
 	srand(time(NULL));
-	rle_mkrand(rle, rles_nr, &syms_nr);
-	//rle_print(rle);
 
 	unsigned nthreads = 1;
 	#if defined(YES_CILK)
 	nthreads = __cilkrts_get_nworkers();
 	#endif
 
-
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%lu\n", rle_rec_limit);
 	printf("Number of threads:%u\n", nthreads);
 
+	TSC_REPORT_TICKS("rle_mkrand:", {
+		rle_mkrand(rle, rles_nr, &syms_nr);
+		//rle_print(rle);
+	});
 
-	xarray_t *syms = rle_decode(rle, syms_nr);
+
+	xarray_t *syms;
+	TSC_REPORT_TICKS("rle_decode:",{
+		syms = rle_decode(rle, syms_nr);
+	});
+
 	xslice_t syms_sl;
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
 
 	rle_stats_create(nthreads);
 
-	tsc_t total_ticks;
-	uint64_t t;
 	/*
 	 * start RLE
 	 */
-	tsc_init(&total_ticks); tsc_start(&total_ticks);
-	rle_new = rle_encode(&syms_sl);
+	TSC_REPORT_TICKS("rle_encode:", {
+		rle_new = rle_encode(&syms_sl);
+	});
 	//rle_print(rle_new);
-	tsc_pause(&total_ticks);
-	t = tsc_getticks(&total_ticks);
-	printf("rle_encode:         %s ticks [%lu]\n", ul_hstr(t), t);
+
+
+	#if !defined(NDEBUG)
 	if (rle_cmp(rle, rle_new) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
 	}
-	cilk_sync;
+	#endif
 	//rle_stats_report(nthreads, tsc_getticks(&total_ticks));
 
 	/*
@@ -382,18 +386,15 @@ main(int argc, const char *argv[])
 	*/
 
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
-
-	// performance stats
 	rle_stats_init(nthreads);
 
-	tsc_init(&total_ticks); tsc_start(&total_ticks);
-	rle_rec = cilk_spawn rle_encode_rec(&syms_sl);
-	cilk_sync;
-	tsc_pause(&total_ticks);
-	t = tsc_getticks(&total_ticks);
-	printf("rle_encode_rec:     %s ticks [%lu]\n", ul_hstr(t), t);
+	TSC_MEASURE_TICKS(xticks, {
+		rle_rec = cilk_spawn rle_encode_rec(&syms_sl);
+		cilk_sync;
+	});
 
-	rle_stats_report(nthreads, tsc_getticks(&total_ticks));
+	tsc_report_ticks("rle_encode_rec:", xticks);
+	rle_stats_report(nthreads, xticks);
 	rle_stats_destroy();
 
 	/*
