@@ -15,7 +15,8 @@
 #include "rle_rec_stats.h"
 DECLARE_RLE_STATS
 
-static inline unsigned getmyid(void)
+unsigned
+rle_getmyid(void)
 {
 	unsigned ret = 0;
 	#if defined(YES_CILK)
@@ -155,13 +156,13 @@ rle_create_xarr(void)
 xarray_t *
 rle_encode(xslice_t *syms)
 {
-	RLE_TIMER_START(rle_encode, getmyid());
+	RLE_TIMER_START(rle_encode, rle_getmyid());
 	char prev, curr;
 	xarray_t *rles;
 
-	RLE_TIMER_START(rle_alloc, getmyid());
+	RLE_TIMER_START(rle_alloc, rle_getmyid());
 	rles = rle_create_xarr();
-	RLE_TIMER_PAUSE(rle_alloc, getmyid());
+	RLE_TIMER_PAUSE(rle_alloc, rle_getmyid());
 
 	prev = *((char *)xslice_getnext(syms));
 	size_t freq = 1;
@@ -184,7 +185,7 @@ rle_encode(xslice_t *syms)
 	}
 
 
-	RLE_TIMER_START(rle_encode_loop, getmyid());
+	RLE_TIMER_START(rle_encode_loop, rle_getmyid());
 	rles_ch = xarray_append_prepare(rles, &rles_ch_len);
 	while (1) {
 		syms_ch = xslice_getnextchunk(syms, &syms_ch_len);
@@ -204,9 +205,9 @@ rle_encode(xslice_t *syms)
 	}
 	append_rle(prev, freq);
 	xarray_append_finalize(rles, rles_ch_idx);
-	RLE_TIMER_PAUSE(rle_encode_loop, getmyid());
+	RLE_TIMER_PAUSE(rle_encode_loop, rle_getmyid());
 
-	RLE_TIMER_PAUSE(rle_encode, getmyid());
+	RLE_TIMER_PAUSE(rle_encode, rle_getmyid());
 	xarray_verify(rles);
 	return rles;
 }
@@ -214,7 +215,7 @@ rle_encode(xslice_t *syms)
 xarray_t *
 rle_merge(xarray_t *rle1, xarray_t *rle2)
 {
-	RLE_TIMER_START(rle_merge, getmyid());
+	RLE_TIMER_START(rle_merge, rle_getmyid());
 	xarray_verify(rle1);
 	xarray_verify(rle2);
 	assert(rle1 != NULL); assert(xarray_elem_size(rle1) == sizeof(struct rle_node));
@@ -234,7 +235,7 @@ rle_merge(xarray_t *rle1, xarray_t *rle2)
 	xarray_t *ret = xarray_concat(rle1, rle2);
 	//printf("ret\n"); rle_print(ret);
 	//printf("-------------------------\n");;
-	RLE_TIMER_PAUSE(rle_merge, getmyid());
+	RLE_TIMER_PAUSE(rle_merge, rle_getmyid());
 	return ret;
 }
 
@@ -255,9 +256,9 @@ rle_encode_rec(xslice_t *syms)
 
 	/* splitting */
 	xslice_t s1, s2;
-	RLE_TIMER_START(rle_split, getmyid());
+	RLE_TIMER_START(rle_split, rle_getmyid());
 	xslice_split(syms, &s1, &s2);
-	RLE_TIMER_PAUSE(rle_split, getmyid());
+	RLE_TIMER_PAUSE(rle_split, rle_getmyid());
 
 	/*
 	printf("----\n");
@@ -329,6 +330,11 @@ main(int argc, const char *argv[])
 	#endif
 	*/
 
+	unsigned nthreads = 1;
+	#if defined(YES_CILK)
+	nthreads = __cilkrts_get_nworkers();
+	#endif
+	rle_stats_create(nthreads);
 
 	xarray_t __attribute__((unused)) *rle, *rle_rec, *rle_new;
 	rle = rle_create_xarr();
@@ -348,10 +354,9 @@ main(int argc, const char *argv[])
 
 	srand(time(NULL));
 
-	unsigned nthreads = 1;
-	#if defined(YES_CILK)
-	nthreads = __cilkrts_get_nworkers();
-	#endif
+
+
+	rle_stats_init(nthreads);
 
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
@@ -364,7 +369,6 @@ main(int argc, const char *argv[])
 	});
 
 
-	rle_stats_create(nthreads);
 	rle_stats_init(nthreads);
 
 	xarray_t *syms;

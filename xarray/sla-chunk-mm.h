@@ -87,10 +87,16 @@ static __thread struct sla_mm Slamm;
 
 #else /* malloc() implementation */
 
+// ugly include for TIMER functions
+#include "rle_rec_stats.h"
+unsigned rle_getmyid(void);
+
 static inline void *
 sla_chunk_alloc(size_t size)
 {
+	RLE_TIMER_START(sla_chunk_alloc, rle_getmyid());
 	return xmalloc(size);
+	RLE_TIMER_PAUSE(sla_chunk_alloc, rle_getmyid());
 }
 
 static inline void
@@ -103,11 +109,13 @@ sla_chunk_free(void *buff)
 static inline sla_node_t *
 do_sla_node_alloc(unsigned lvl, void *chunk, size_t chunk_size)
 {
+	RLE_TIMER_START(sla_node_alloc, rle_getmyid());
 	size_t size = sla_node_size(lvl);
 	sla_node_t *ret = malloc(size);
 	if (!ret)
 		return NULL;
 	sla_node_init(ret, lvl, chunk, chunk_size, 0);
+	RLE_TIMER_PAUSE(sla_node_alloc, rle_getmyid());
 	return ret;
 }
 

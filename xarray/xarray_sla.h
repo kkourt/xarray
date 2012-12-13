@@ -167,7 +167,7 @@ xarray_append(xarray_t *xarr)
 
 	if (sla_tailnode_full(sla)) {
 		size_t alloc_grain = xarr->elems_chunk_size*elem_size;
-		char *buff = xmalloc(alloc_grain);
+		char *buff = sla_chunk_alloc(alloc_grain);
 		unsigned lvl;
 		sla_node_t *node = sla_node_alloc(sla, buff, alloc_grain, &lvl);
 		sla_append_node(sla, node, lvl);
@@ -187,11 +187,11 @@ xarray_append_prepare(xarray_t *xarr, size_t *nelems)
 	sla_t *sla = &xarr->sla;
 	size_t elem_size = xarr->elem_size;
 
-	RLE_TIMER_START(sla_append_prepare, getmyid());
+	RLE_TIMER_START(sla_append_prepare, rle_getmyid());
 
 	if (sla_tailnode_full(sla)) {
 		size_t alloc_grain = xarr->elems_chunk_size*elem_size;
-		char *buff = xmalloc(alloc_grain);
+		char *buff = sla_chunk_alloc(alloc_grain);
 		unsigned lvl;
 		sla_node_t *node = sla_node_alloc(sla, buff, alloc_grain, &lvl);
 		sla_append_node(sla, node, lvl);
@@ -205,7 +205,7 @@ xarray_append_prepare(xarray_t *xarr, size_t *nelems)
 	assert(chunk_len % elem_size == 0);
 	*nelems = chunk_len / elem_size;
 
-	RLE_TIMER_PAUSE(sla_append_prepare, getmyid());
+	RLE_TIMER_PAUSE(sla_append_prepare, rle_getmyid());
 
 	return n->chunk + nlen;
 }
