@@ -11,6 +11,7 @@
 #endif
 
 #include "sla-chunk.h"
+#include "sla-chunk-mm.h"
 #include "misc.h"
 
 // This is a quick hack, so that we can just use xslice_t to declare a slice

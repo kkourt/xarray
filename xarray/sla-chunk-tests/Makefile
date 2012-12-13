@@ -4,7 +4,7 @@
 SLA_DIR      = ..
 SLA_MAKE_DIR = ../..
 CC           = gcc
-CFLAGS       = -Wall -O2  -I$(SLA_DIR) -std=c99
+CFLAGS       = -Wall -O2  -I$(SLA_DIR) -I$(SLA_MAKE_DIR) -std=c99 -D_GNU_SOURCE
 
 #CFLAGS      += -Wall -Wno-format-y2k -W -Wstrict-prototypes \
 #               -Wmissing-prototypes -Wpointer-arith -Wreturn-type \

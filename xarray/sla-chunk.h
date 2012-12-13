@@ -21,10 +21,22 @@ typedef struct sla_fwrd sla_fwrd_t;
  * @chunk:       data buffer
  * @chunk_size:  size of data buffer
  * @forward:    forward pointers
+ * @lvl:        level of node
+ *
+ * Note: @lvl isn't necessary for the algorithms, but it simplifies them
+ * significantly. On the initial implementation, I wanted to avoid the extra
+ * space, so the current code does not need a ->lvl. However, the space waste is
+ * too small (actually it is none since malloc_usable_size(node) returns the
+ * same value whether ->lvl is included or not), and it might be a good idea to
+ * include it in the structure. Currently, we are using it only to index the
+ * free lists, and the #if is a reminder to change the sla algorithms to use it.
  */
 struct sla_node {
 	void       *chunk;
 	size_t     chunk_size;
+	#if defined(SLA_MM_FREELISTS)
+	int        lvl;
+	#endif
 	sla_fwrd_t forward[];
 };
 typedef struct sla_node sla_node_t;
@@ -129,15 +141,6 @@ void
 sla_node_init(sla_node_t *node, unsigned lvl,
               void *chunk, size_t chunk_size,
               size_t node_size);
-/**
- * allocate and initialize an sla node
- */
-sla_node_t *
-sla_node_alloc(sla_t *sla, void *chunk, size_t chunk_size, unsigned *lvl_ret);
-
-sla_node_t *
-do_sla_node_alloc(unsigned lvl, void *chunk, size_t chunk_size);
-
 /**
  * sla_init: initialize an sla
  *  this will allocate memory (head and tail), call sla_destroy() to release it.

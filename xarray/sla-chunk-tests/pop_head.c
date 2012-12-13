@@ -2,6 +2,7 @@
 #include <assert.h>
 
 #include "sla-chunk.h"
+#include "sla-chunk-mm.h"
 
 int main(int argc, const char *argv[])
 {

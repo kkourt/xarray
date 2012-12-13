@@ -8,6 +8,7 @@
 
 #include "misc.h"
 #include "sla-chunk.h"
+#include "sla-chunk-mm.h"
 
 /**
  *  |---------------------------------->|
@@ -64,35 +65,6 @@ sla_node_init(sla_node_t *node, unsigned lvl,
 	}
 }
 
-/* allocate and initialize an sla node (takes level directly as argument) */
-sla_node_t *
-do_sla_node_alloc(unsigned lvl, void *chunk, size_t chunk_size)
-{
-	size_t size = sla_node_size(lvl);
-	sla_node_t *ret = malloc(size);
-	if (!ret)
-		return NULL;
-	sla_node_init(ret, lvl, chunk, chunk_size, 0);
-	return ret;
-}
-
-/* allocate and initialize an sla node */
-sla_node_t *
-sla_node_alloc(sla_t *sla, void *chunk, size_t chunk_size, unsigned *lvl_ret)
-{
-	unsigned lvl = sla_rand_level(sla);
-	if (lvl_ret)
-		*lvl_ret = lvl;
-	return do_sla_node_alloc(lvl, chunk, chunk_size);
-}
-
-
-void
-sla_node_dealloc(sla_node_t *node)
-{
-	free(node);
-}
-
 /* initialize an sla, but without allocating head/tail or changing parameters */
 static void
 do_sla_init(sla_t *sla)
@@ -132,8 +104,8 @@ sla_init(sla_t *sla, unsigned max_level, float p)
 void
 sla_destroy(sla_t *sla)
 {
-	free(sla->head);
-	free(sla->tail);
+	sla_node_free(sla->head);
+	sla_node_free(sla->tail);
 }
 
 void sla_verify(sla_t *sla)
@@ -506,8 +478,8 @@ sla_concat(sla_t *sla1, sla_t *sla2)
 		void *dst = sla_append_tailnode__(sla1, &cpsize);
 		assert(cpsize == sla2_hcnt);
 		memcpy(dst, n->chunk, cpsize);
-		free(n->chunk); // XXX: need to do this right!
-		free(n);
+		sla_chunk_free(n->chunk);
+		sla_node_free(n);
 		assert(SLA_NODE_NITEMS(sla1_tail) == sla1_tcnt + sla2_hcnt);
 		sla_verify(sla1);
 		sla_verify(sla2);
@@ -659,7 +631,7 @@ sla_pop_tailnode(sla_t *sla, size_t *len)
 		sla_pop_tail(sla);
 		assert(n->chunk_size >= nlen);
 		*len = nlen;
-		sla_node_dealloc(n);
+		sla_node_free(n);
 		ret = n->chunk;
 	} else {
 		// just update counters
@@ -735,7 +707,7 @@ sla_copyto(sla_t *sla, char *src, size_t len, size_t alloc_grain)
 
 	while (len > 0) {
 		assert(sla_tailnode_full(sla));
-		char *buff = xmalloc(alloc_grain);
+		char *buff = sla_chunk_alloc(alloc_grain);
 		unsigned lvl;
 		sla_node_t *node = sla_node_alloc(sla, buff, alloc_grain, &lvl);
 		sla_append_node(sla, node, lvl);
@@ -761,7 +733,7 @@ sla_copyto_rand(sla_t *sla, char *src, size_t len,
 	while (len > 0) {
 		assert(sla_tailnode_full(sla));
 		size_t size = randi(&seed, alloc_grain_max, alloc_grain_min);
-		char *buff = xmalloc(size);
+		char *buff = sla_chunk_alloc(size);
 		unsigned lvl;
 		sla_node_t *node = sla_node_alloc(sla, buff, size, &lvl);
 		sla_append_node(sla, node, lvl);
