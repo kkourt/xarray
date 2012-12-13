@@ -52,6 +52,7 @@ rle_stats_destroy(void)
 static inline void
 rle_stats_do_report(const char *prefix, rle_stats_t *st, uint64_t total_ticks)
 {
+#if defined(RLE_STATS)
 	#define pr_ticks(x__) do { \
 		uint64_t t__ = tsc_getticks(&st->x__);  \
 		uint64_t c__ = st->x__.cnt;             \
@@ -72,22 +73,24 @@ rle_stats_do_report(const char *prefix, rle_stats_t *st, uint64_t total_ticks)
 	pr_ticks(sla_chunk_alloc);
 
 	#undef pr_ticks
+#endif
 }
 
 static inline void
 rle_stats_report(unsigned nthreads, uint64_t total_ticks)
 {
+#if defined(RLE_STATS)
 	for (unsigned i=0; i<nthreads; i++) {
 		printf("thread %3u:\n", i);
 		rle_stats_do_report(" ", RleStats + i, total_ticks);
 	}
+#endif
 }
 
 #if defined(RLE_STATS)
 	#define RLE_TIMER_START(x,i)  do {tsc_start(&RleStats[i].x); } while (0)
 	#define RLE_TIMER_PAUSE(x,i)  do {tsc_pause(&RleStats[i].x);  } while (0)
 #else // !defined(RLE_STATS)
-	#define DECLARE_RLE_STATS()
 	#define RLE_TIMER_START(x,i)  do {;} while (0)
 	#define RLE_TIMER_PAUSE(x,i)  do {;} while (0)
 #endif // RLE_STATS
