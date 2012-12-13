@@ -2,7 +2,6 @@
 #define SLA_CHUNK_MM
 
 #include "misc.h"
-
 // interface
 
 static void *sla_chunk_alloc(size_t size);
@@ -94,9 +93,11 @@ unsigned rle_getmyid(void);
 static inline void *
 sla_chunk_alloc(size_t size)
 {
+	void *ret;
 	RLE_TIMER_START(sla_chunk_alloc, rle_getmyid());
-	return xmalloc(size);
+	ret = xmalloc(size);
 	RLE_TIMER_PAUSE(sla_chunk_alloc, rle_getmyid());
+	return ret;
 }
 
 static inline void
