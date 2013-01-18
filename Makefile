@@ -4,7 +4,7 @@ CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                 = $(CILKDIR)/bin/gcc
 #CC                 = gcc
-CFLAGS             = -Wall -O2 -I. -I./xarray -std=c99 -ggdb3 -D_GNU_SOURCE
+CFLAGS             = -Wall -O2 -Iinclude -I./rle -I./xarray -std=c99 -ggdb3 -D_GNU_SOURCE
 CFLAGS            += -DNDEBUG
 LDFLAGS            =
 
@@ -19,24 +19,24 @@ CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
 CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
 
-hdrs  =$(wildcard *.h)
+hdrs  =$(wildcard rle/*.h)
 hdrs +=$(wildcard xarray/*.h)
 
-all: rle_rec prle_rec                     \
-     rle_rec_mpools prle_rec_mpools       \
-     prle_rec_xarray_da rle_rec_xarray_da \
-     prle_rec_xarray_sla rle_rec_xarray_sla
+all: rle/rle_rec rle/prle_rec                     \
+     rle/rle_rec_mpools rle/prle_rec_mpools       \
+     rle/prle_rec_xarray_da rle/rle_rec_xarray_da \
+     rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
 
-prle_rec_xarray_sla: prle_rec_xarray_sla.o xarray/sla-chunk.o
+rle/prle_rec_xarray_sla: rle/prle_rec_xarray_sla.o xarray/sla-chunk.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
-rle_rec_xarray_sla: rle_rec_xarray_sla.o xarray/sla-chunk.o
+rle/rle_rec_xarray_sla: rle/rle_rec_xarray_sla.o xarray/sla-chunk.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
-prle_rec_xarray_da: xarray/xarray_dynarray.o prle_rec_xarray_da.o xarray/dynarray.o
+rle/prle_rec_xarray_da: xarray/xarray_dynarray.o rle/prle_rec_xarray_da.o xarray/dynarray.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
-rle_rec_xarray_da: xarray/xarray_dynarray.o rle_rec_xarray_da.o xarray/dynarray.o
+rle/rle_rec_xarray_da: xarray/xarray_dynarray.o rle/rle_rec_xarray_da.o xarray/dynarray.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
 xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
@@ -45,37 +45,38 @@ xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
 xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
-prle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
+rle/prle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
 
-prle_rec_xarray_sla.o: rle_rec_xarray.c $(hdrs)
+rle/prle_rec_xarray_sla.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_SLA__ $< -o $@ -c
 
-rle_rec_xarray_da.o: rle_rec_xarray.c $(hdrs)
+rle/rle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
 
-rle_rec_xarray_sla.o: rle_rec_xarray.c $(hdrs)
+rle/rle_rec_xarray_sla.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
 
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
 
-prle_rec_mpools: rle_rec_mpools.c
+rle/prle_rec_mpools: rle/rle_rec_mpools.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
 
-rle_rec_mpools: rle_rec_mpools.c
+rle/rle_rec_mpools: rle/rle_rec_mpools.c
 	$(CC) -DNO_CILK $(LDFLAGS) $(CFLAGS) $< -o $@
 
-prle_rec: rle_rec.c
+rle/prle_rec: rle/rle_rec.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
 
-rle_rec: rle_rec.c
+rle/rle_rec: rle/rle_rec.c
 	$(CC) -DNO_CILK $(LDFLAGS) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f *.o xarray/*.o rle_rec prle_rec rle_rec_mpools prle_rec_mpools
-	rm -f prle_rec_xarray_da rle_rec_xarray_da
-	rm -f prle_rec_xarray_sla rle_rec_xarray_sla
+	rm -f rle/*.o xarray/*.o
+	rm -f rle/rle_rec prle_rec    rle/rle_rec_mpools rle/prle_rec_mpools
+	rm -f rle/prle_rec_xarray_da  rle/rle_rec_xarray_da
+	rm -f rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
 
 
 ## Old versions based on cilk, compiled as C
