@@ -21,11 +21,26 @@ CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
 
 hdrs  =$(wildcard rle/*.h)
 hdrs +=$(wildcard xarray/*.h)
+hdrs +=$(wildcard include/*.h)
 
-all: rle/rle_rec rle/prle_rec                     \
-     rle/rle_rec_mpools rle/prle_rec_mpools       \
-     rle/prle_rec_xarray_da rle/rle_rec_xarray_da \
-     rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
+all: rle/rle_rec rle/prle_rec                       \
+     rle/rle_rec_mpools rle/prle_rec_mpools         \
+     rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
+     rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
+     floorplan/floorplan
+
+## xarray
+
+xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
+	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
+
+xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
+	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
+
+xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
+	$(CC) $(CFLAGS) $< -o $@ -c
+
+## RLE
 
 rle/prle_rec_xarray_sla: rle/prle_rec_xarray_sla.o xarray/sla-chunk.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
@@ -39,12 +54,6 @@ rle/prle_rec_xarray_da: xarray/xarray_dynarray.o rle/prle_rec_xarray_da.o xarray
 rle/rle_rec_xarray_da: xarray/xarray_dynarray.o rle/rle_rec_xarray_da.o xarray/dynarray.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
-xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
-	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
-
-xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
-	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
-
 rle/prle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
 
@@ -57,9 +66,6 @@ rle/rle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
 rle/rle_rec_xarray_sla.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
 
-xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
-	$(CC) $(CFLAGS) $< -o $@ -c
-
 rle/prle_rec_mpools: rle/rle_rec_mpools.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
 
@@ -71,6 +77,14 @@ rle/prle_rec: rle/rle_rec.c
 
 rle/rle_rec: rle/rle_rec.c
 	$(CC) -DNO_CILK $(LDFLAGS) $(CFLAGS) $< -o $@
+
+## floorplan
+
+floorplan/floorplan.o: floorplan/floorplan.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
+
+floorplan/floorplan: floorplan/floorplan.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 clean:
 	rm -f rle/*.o xarray/*.o
