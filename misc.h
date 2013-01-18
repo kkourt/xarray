@@ -133,4 +133,7 @@ ul_hstr(unsigned long ul)
 
 }
 
+#define	likely(x)	__builtin_expect((x),1)
+#define unlikely(x)	__builtin_expect((x),0)
+
 #endif /* MISC_H__ */
