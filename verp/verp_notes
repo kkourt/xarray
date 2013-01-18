@@ -1,0 +1,39 @@
+
+Versioning for SLAs
+ - only for data -- i.e., size/structure can't change
+
+Versions define a partial order. We define a base version. We guarantee that no
+requests will be made for vs < base.
+
+Approach 1:
+  - each pointer maintains a (version -> ptr) mapping  using a hash table.
+    vptr.get(ver):
+	for (v = ver; ; v = v->parent) {
+		if ((ptr = mapping.get(v)) != NULL) {
+			break;
+		} else if (v == base) {
+			gc = 1;
+		}
+	}
+	if (gc == 1) {
+		mapping.reset() // should decrease reference counts of all versions and call ptr_dealloc() on objects
+		mapping.set(base, ptr)
+	}
+
+	return ptr;
+
+    vptr.put(vx, px):
+	htable.set(vx, px)
+
+   -> also with array, binary search + resize
+
+
+- Ephemeral versions?
+
+  floorplan will branch a number of versions, make changes and then keep only one.
+  We don't need the discarded versions, but for each pointer the version will remain
+  in the hash table until  the base pointer surprsases all versions of this pointer
+
+   - A mapping from versions to pointers, would help removing the mappings
+   - We might consider ephemeral versions, where the changes are kept externally
+     and then commited by actually inserting q
