@@ -7,10 +7,16 @@
 
 #include <inttypes.h>
 
+//#define TSC_MINMAX
+
 struct tsc {
-	uint64_t	ticks;
-	uint64_t	last;
-	uint64_t        cnt;
+	uint64_t ticks;
+	uint64_t last;
+	uint64_t cnt;
+	#if defined(TSC_MINMAX)
+	uint64_t min;
+	uint64_t max;
+	#endif
 };
 typedef struct tsc tsc_t;
 
@@ -58,6 +64,10 @@ static inline void tsc_init(tsc_t *tsc)
 	tsc->ticks = 0;
 	tsc->last  = 0;
 	tsc->cnt   = 0;
+	#if defined(TSC_MINMAX)
+	tsc->min   = UINT64_MAX;
+	tsc->max   = 0;
+	#endif
 }
 
 static inline void tsc_shut(tsc_t *tsc)
@@ -73,11 +83,22 @@ static inline void tsc_start(tsc_t *tsc)
 
 static inline void tsc_pause(tsc_t *tsc)
 {
+	uint64_t ticks;
 	uint64_t t = get_ticks();
 	assert(tsc->last < t);
 	assert(tsc->cnt % 2 == 1);
-	tsc->ticks += (t - tsc->last);
+	ticks = t - tsc->last;
+	tsc->ticks += ticks;
 	tsc->cnt++;
+	#if defined(TSC_MINMAX)
+	if (ticks > tsc->max)
+		tsc->max = ticks;
+	// XXX: there is code that initializes tsc_t by zeroing everything
+	// (i.e., without calling tsc_init())
+	if (ticks < tsc->min || tsc->min == 0) {
+		tsc->min = ticks;
+	}
+	#endif
 }
 
 static double __getMhz(void)
@@ -128,6 +149,49 @@ static uint64_t tsc_getticks(tsc_t *tsc)
 	return tsc->ticks;
 }
 
+static inline uint64_t
+tsc_cnt(tsc_t *tsc)
+{
+	assert(tsc->cnt % 2 == 0 && "counter still running");
+	return tsc->cnt / 2;
+}
+
+static inline uint64_t
+tsc_avg_uint64(tsc_t *tsc)
+{
+	assert(tsc->cnt % 2 == 0);
+	uint64_t cnt = tsc_cnt(tsc);
+	return cnt == 0 ? 0: tsc_getticks(tsc) / cnt;
+}
+
+static inline double
+tsc_avg(tsc_t *tsc)
+{
+	assert(tsc->cnt % 2 == 0);
+	uint64_t cnt = tsc_cnt(tsc);
+	return cnt == 0 ? 0.0 : (double)tsc_getticks(tsc) / (double)cnt;
+}
+
+static inline uint64_t
+tsc_max(tsc_t *tsc)
+{
+	#if defined(TSC_MINMAX)
+	return tsc->max;
+	#else
+	return tsc_avg_uint64(tsc);
+	#endif
+}
+
+static inline uint64_t
+tsc_min(tsc_t *tsc)
+{
+	#if defined(TSC_MINMAX)
+	return tsc->min;
+	#else
+	return tsc_avg_uint64(tsc);
+	#endif
+}
+
 static inline void tsc_spinticks(uint64_t ticks)
 {
 	uint64_t t0;
@@ -142,7 +206,7 @@ static inline void tsc_spinticks(uint64_t ticks)
 }
 
 static inline char *
-tsc_ul_hstr(unsigned long ul)
+tsc_u64_hstr(uint64_t ul)
 {
 	#define UL_HSTR_NR 16
 	static __thread int i=0;
@@ -173,17 +237,94 @@ tsc_ul_hstr(unsigned long ul)
 
 static inline void tsc_report_ticks(char *prefix, uint64_t ticks)
 {
-	printf("%-20s %s ticks [%13lu]\n", prefix, tsc_ul_hstr(ticks), ticks);
+	printf("%20s: %s ticks [%13lu]\n", prefix, tsc_u64_hstr(ticks), ticks);
 }
 
-static inline void tsc_report(char *prefix, tsc_t *tsc)
+static inline void
+tsc_report(const char *prefix, tsc_t *tsc)
+{
+	uint64_t ticks = tsc_getticks(tsc);
+	printf("%26s: ticks:%7s [%13"PRIu64"]"
+	              " cnt:%7s [%13"PRIu64"]"
+	              " avg:%7s [%16.2lf]"
+	              " max:%7s [%13"PRIu64"]"
+	              " min:%7s [%13"PRIu64"]\n",
+	         prefix,
+	         tsc_u64_hstr(ticks),                  ticks,
+	         tsc_u64_hstr(tsc_cnt(tsc)),           tsc_cnt(tsc),
+	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc),
+	         tsc_u64_hstr(tsc_max(tsc)),           tsc_max(tsc),
+	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc));
+}
+
+#define TSC_REPFL_ZEROES 0x1
+
+// report and percentages based on total ticks
+static inline void
+tsc_report_perc(const char *prefix, tsc_t *tsc, uint64_t total_ticks,
+                unsigned long flags)
+{
+	if (!(flags & TSC_REPFL_ZEROES) && (tsc_cnt(tsc) == 0) )
+		return;
+
+	uint64_t ticks = tsc_getticks(tsc);
+	printf("%26s: ticks:%7s [%13"PRIu64"]"
+	              " (%5.1lf%%)"
+	              " cnt:%7s [%13"PRIu64"]"
+	              " avg:%7s [%16.2lf]"
+	              " max:%7s [%13"PRIu64"]"
+	              " min:%7s [%13"PRIu64"]\n",
+	         prefix,
+	         tsc_u64_hstr(ticks),                  ticks,
+	         ((double)ticks*100.0)/(double)total_ticks,
+	         tsc_u64_hstr(tsc_cnt(tsc)),           tsc_cnt(tsc),
+	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc),
+	         tsc_u64_hstr(tsc_max(tsc)),           tsc_max(tsc),
+	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc));
+}
+
+static inline void tsc_report_old(char *prefix, tsc_t *tsc)
 {
 	uint64_t ticks = tsc_getticks(tsc);
 	tsc_report_ticks(prefix, ticks);
 }
 
+#define TSC_UPDATE(tsc, code) \
+do { \
+	tsc_start(tsc); \
+	do { code } while (0); \
+	tsc_pause(tsc); \
+} while (0);
+
+#define TSC_MEASURE(tsc_, code_)               \
+tsc_t tsc_  = ({                               \
+	tsc_t xtsc_;                               \
+	tsc_init(&xtsc_); tsc_start(&xtsc_);       \
+	do { code_ } while (0);                    \
+	tsc_pause(&xtsc_);                         \
+	xtsc_;                                     \
+});
+
 #define TSC_MEASURE_TICKS(_ticks, _code)       \
 uint64_t _ticks = ({                           \
+        tsc_t xtsc_;                           \
+        tsc_init(&xtsc_); tsc_start(&xtsc_);   \
+        do { _code } while (0);                \
+        tsc_pause(&xtsc_);                     \
+        tsc_getticks(&xtsc_);                  \
+});
+
+#define TSC_SET_TICKS(_ticks, _code)           \
+_ticks = ({                                   \
+        tsc_t xtsc_;                           \
+        tsc_init(&xtsc_); tsc_start(&xtsc_);   \
+        do { _code } while (0);                \
+        tsc_pause(&xtsc_);                     \
+        tsc_getticks(&xtsc_);                  \
+});
+
+#define TSC_ADD_TICKS(_ticks, _code)           \
+_ticks += ({                                   \
         tsc_t xtsc_;                           \
         tsc_init(&xtsc_); tsc_start(&xtsc_);   \
         do { _code } while (0);                \
@@ -200,22 +341,5 @@ do {                                                \
         tsc_report(str, &xtsc_);                    \
 } while (0)
 
-#define TSC_SET_TICKS(_ticks, _code)           \
-_ticks = ({                                    \
-        tsc_t xtsc_;                           \
-        tsc_init(&xtsc_); tsc_start(&xtsc_);   \
-        do { _code } while (0);                \
-        tsc_pause(&xtsc_);                     \
-        tsc_getticks(&xtsc_);                  \
-});
-
-#define TSC_ADD_TICKS(_ticks, _code)           \
-_ticks += ({                                   \
-        tsc_t xtsc_;                           \
-        tsc_init(&xtsc_); tsc_start(&xtsc_);   \
-        do { _code } while (0);                \
-        tsc_pause(&xtsc_);                     \
-        tsc_getticks(&xtsc_);                  \
-});
 
 #endif
