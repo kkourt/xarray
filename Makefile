@@ -27,7 +27,7 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
-     floorplan/floorplan
+     floorplan/floorplan-serial floorplan/floorplan
 
 ## xarray
 
@@ -85,6 +85,9 @@ floorplan/floorplan.o: floorplan/floorplan.c $(hdrs)
 
 floorplan/floorplan: floorplan/floorplan.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+floorplan/floorplan-serial: floorplan/floorplan-serial.c
+	$(CC) $(LDFLAGS) $(CFLAGS) $< -o $@
 
 clean:
 	rm -f rle/*.o xarray/*.o

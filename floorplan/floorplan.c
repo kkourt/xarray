@@ -35,9 +35,14 @@
 
 #include "misc.h"
 #include "tsc.h"
+#include "xcnt.h"
 
-static __thread struct {
-    tsc_t    memcpy_tsc;
+static struct {
+    tsc_t    memcpy_cells;
+    tsc_t    memcpy_board;
+    tsc_t    memcpy_min;
+    xcnt_t   branches;
+    xcnt_t   commits;
 } xstats[32];
 
 
@@ -186,6 +191,7 @@ static void read_inputs() {
   gcells = (struct cell *) malloc((n + 1) * sizeof(struct cell));
 
   /* this is the first, dummy cell */
+  // it is used in restriction (.left, .above), so it is on the first corner
   gcells[0].n     =  0;
   gcells[0].alt   =  0;
   gcells[0].top   =  0;
@@ -196,24 +202,26 @@ static void read_inputs() {
   gcells[0].above =  0;
   gcells[0].next  =  0;
 
-  for (i = 1; i < n + 1; i++) {
+    for (i = 1; i < n + 1; i++) {
+        // first number is the number of alternative configurations for the cell
+        read_integer(inputFile, gcells[i].n);
+        // based on that we allocate one tuple per alternative configuration
+        gcells[i].alt = (coor *) malloc(gcells[i].n * sizeof(coor));
+        // read alternative configuration
+        for (j = 0; j < gcells[i].n; j++) {
+            read_integer(inputFile, gcells[i].alt[j][0]);
+            read_integer(inputFile, gcells[i].alt[j][1]);
+        }
+        // read placement restrictions, left and above
+        read_integer(inputFile, gcells[i].left);
+        read_integer(inputFile, gcells[i].above);
+        // next cell
+        read_integer(inputFile, gcells[i].next);
+    }
 
-      read_integer(inputFile, gcells[i].n);
-      gcells[i].alt = (coor *) malloc(gcells[i].n * sizeof(coor));
-
-      for (j = 0; j < gcells[i].n; j++) {
-          read_integer(inputFile, gcells[i].alt[j][0]);
-          read_integer(inputFile, gcells[i].alt[j][1]);
-      }
-
-      read_integer(inputFile, gcells[i].left);
-      read_integer(inputFile, gcells[i].above);
-      read_integer(inputFile, gcells[i].next);
-      }
-
-  if (!feof(inputFile)) {
-      read_integer(inputFile, solution);
-  }
+    if (!feof(inputFile)) {
+        read_integer(inputFile, solution);
+    }
 }
 
 
@@ -231,29 +239,11 @@ static void write_outputs() {
     }
 }
 
-static void
-try_update_min(int area, ibrd board, coor footprint)
-{
-    if (area >= MIN_AREA)
-        return;
-    /* if area is minimum, update global values */
-    spin_lock(&xlock);
-    if (area < MIN_AREA) {
-        MIN_AREA         = area;
-        MIN_FOOTPRINT[0] = footprint[0];
-        MIN_FOOTPRINT[1] = footprint[1];
-        //tsc_start(&memcpy_tsc);
-        memcpy(BEST_BOARD, board, sizeof(ibrd));
-        //tsc_pause(&memcpy_tsc);
-        dmsg("N  %d\n", MIN_AREA);
-    }
-    spin_unlock(&xlock);
-}
-
 static int __attribute__((unused))
 add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
 {
-  int  i, j, nn, nn2, area;
+  int  i, j; // loop variables
+  int nn, nn2, area;
 
   ibrd board;
   coor footprint, NWS[DMAX];
@@ -291,7 +281,20 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
             /* if last cell */
             if (cells[id].next == 0) {
                 /* try  to update globals */
-                try_update_min(area, board, footprint);
+                /* if area is minimum, update global values */
+                if (area < MIN_AREA) {
+                    spin_lock(&xlock);
+                    if (area < MIN_AREA) {
+                        MIN_AREA         = area;
+                        MIN_FOOTPRINT[0] = footprint[0];
+                        MIN_FOOTPRINT[1] = footprint[1];
+                        //tsc_start(&memcpy_tsc);
+                        memcpy(BEST_BOARD, board, sizeof(ibrd));
+                        //tsc_pause(&memcpy_tsc);
+                        dmsg("N  %d\n", MIN_AREA);
+                    }
+                    spin_unlock(&xlock);
+                }
             } else if (area < MIN_AREA) {
                 /* if area is less than best area */
                 nn2 += add_cell_ser(cells[id].next, footprint, board,cells);
@@ -305,26 +308,42 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
 }
 
 static int
-add_cell(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS,int level)
+add_cell(int id,
+         coor footprint_in,
+         ibrd BOARD,
+         struct cell *cells_in,
+         int level)
 {
-    int  i, j, nn, area, nnc, nnl;
+    int  i, j, nnc, nnl;
 
-    ibrd board;
-    coor footprint, NWS[DMAX];
     nnc = nnl = 0;
 
     /* for each possible shape */
-    cilk_for (i = 0; i < CELLS[id].n; i++) {
+    for (i = 0; i < cells_in[id].n; i++) {
+        int nn;
+        coor NWS[DMAX];
         /* compute all possible locations for nw corner */
-        nn = starts(id, i, NWS, CELLS);
+        nn = starts(id, i, NWS, cells_in);
         nnl += nn;
         /* for all possible locations */
-        for (j = 0; j < nn; j++) { // parallel for
+        cilk_for (j = 0; j < nn; j++) { // parallel for
+            int area;
+            ibrd board;
+            coor footprint;
             struct cell *cells;
+
+            int myid = __cilkrts_get_worker_number();
+            tsc_t  *tsc_cells = &xstats[myid].memcpy_cells;
+            tsc_t  *tsc_board = &xstats[myid].memcpy_board;
+            tsc_t  *tsc_min   = &xstats[myid].memcpy_min;
+            xcnt_t *branches  = &xstats[myid].branches;
+            xcnt_t *commits   = &xstats[myid].commits;
+
+            xcnt_inc(branches);
             cells = alloca(sizeof(struct cell)*(N+1));
-            //tsc_start(&memcpy_tsc);
-            memcpy(cells,CELLS,sizeof(struct cell)*(N+1));
-            //tsc_pause(&memcpy_tsc);
+            tsc_start(tsc_cells);
+            memcpy(cells,cells_in,sizeof(struct cell)*(N+1));
+            tsc_pause(tsc_cells);
 
             /* extent of shape */
             cells[id].top = NWS[j][0];
@@ -332,45 +351,56 @@ add_cell(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS,int level)
             cells[id].lhs = NWS[j][1];
             cells[id].rhs = cells[id].lhs + cells[id].alt[i][1] - 1;
 
-            int myid = __cilkrts_get_worker_number();
-            printf("myid=%d\n", myid);
-            tsc_start(&xstats[myid].memcpy_tsc);
+            //printf("myid=%d tsc=%p cnt=%lu\n", myid, tsc, tsc->cnt);
+            tsc_start(tsc_board);
             memcpy(board, BOARD, sizeof(ibrd));
-            tsc_pause(&xstats[myid].memcpy_tsc);
+            tsc_pause(tsc_board);
 
             /* if the cell cannot be layed down, prune search */
             if (! lay_down(id, board, cells)) {
                 dmsg("Chip %d, shape %d does not fit\n", id, i);
-                continue;
-            }
-
-            /* calculate new footprint of board and area of footprint */
-            footprint[0] = max(FOOTPRINT[0], cells[id].bot+1);
-            footprint[1] = max(FOOTPRINT[1], cells[id].rhs+1);
-            area         = footprint[0] * footprint[1];
-
-            /* if last cell */
-            if (cells[id].next == 0) {
-                /* if area is minimum, update global values */
-                try_update_min(area, board, footprint);
-            } else if (area < MIN_AREA) {
-                #if 0
-                /* if area is less than best area */
-                if (level+1 < bots_cutoff_value ) {
-                    #pragma omp atomic
-                    nnc += add_cell(cells[id].next, footprint, board,cells,level+1);
-                } else {
-                    #pragma omp atomic
-                    nnc += add_cell_ser(cells[id].next, footprint, board,cells);
-                }
-                #endif
-                int my_nnc = add_cell(cells[id].next, footprint, board,cells, level + 1);
-                spin_lock(&xlock); // FIXME
-                nnc += my_nnc;
-                spin_unlock(&xlock);
             } else {
-                /* if area is greater than or equal to best area, prune search */
-                dmsg("T  %d, %d\n", area, MIN_AREA);
+                /* calculate new footprint of board and area of footprint */
+                footprint[0] = max(footprint_in[0], cells[id].bot+1);
+                footprint[1] = max(footprint_in[1], cells[id].rhs+1);
+                area         = footprint[0] * footprint[1];
+
+                /* if last cell */
+                if (cells[id].next == 0) {
+                    /* if area is minimum, update global values */
+                    if (area < MIN_AREA) {
+                        spin_lock(&xlock);
+                        if (area < MIN_AREA) {
+                            MIN_AREA         = area;
+                            MIN_FOOTPRINT[0] = footprint[0];
+                            MIN_FOOTPRINT[1] = footprint[1];
+                            tsc_start(tsc_min);
+                            memcpy(BEST_BOARD, board, sizeof(ibrd));
+                            tsc_pause(tsc_min);
+                            dmsg("N  %d\n", MIN_AREA);
+                        }
+                        spin_unlock(&xlock);
+                    }
+                } else if (area < MIN_AREA) {
+                    #if 0
+                    /* if area is less than best area */
+                    if (level+1 < bots_cutoff_value ) {
+                        #pragma omp atomic
+                        nnc += add_cell(cells[id].next, footprint, board,cells,level+1);
+                    } else {
+                        #pragma omp atomic
+                        nnc += add_cell_ser(cells[id].next, footprint, board,cells);
+                    }
+                    #endif
+                    xcnt_inc(commits);
+                    int my_nnc = add_cell(cells[id].next, footprint, board,cells, level + 1);
+                    spin_lock(&xlock); // FIXME
+                    nnc += my_nnc;
+                    spin_unlock(&xlock);
+                } else {
+                    /* if area is greater than or equal to best area, prune search */
+                    dmsg("T  %d, %d\n", area, MIN_AREA);
+                }
             }
         }
     }
@@ -453,8 +483,18 @@ int main(int argc, const char *argv[])
     floorplan_end();
     floorplan_verify();
 
-    for (unsigned i=0; i<20; i++) {
-        tsc_report_perc("  ", &xstats[i].memcpy_tsc, total_ticks, 0);
+    for (unsigned i=0; i<4; i++) {
+        printf("i=%u\n", i);
+        tsc_t *cells = &xstats[i].memcpy_cells;
+        tsc_t *board = &xstats[i].memcpy_board;
+        tsc_t *min   = &xstats[i].memcpy_min;
+        xcnt_t *branches = &xstats[i].branches;
+        xcnt_t *commits  = &xstats[i].commits;
+        tsc_report_perc("cells  ", cells, total_ticks, 1);
+        tsc_report_perc("board  ", board, total_ticks, 1);
+        tsc_report_perc("min  ",   min, total_ticks, 1);
+        xcnt_report("branches ",  branches);
+        xcnt_report("commits ",   commits);
     }
 
 
