@@ -11,7 +11,7 @@
 #define RLE_STATS // enable stats
 #endif
 
-#define DECLARE_RLE_STATS rle_stats_t *RleStats;
+#define DECLARE_RLE_STATS rle_stats_t *RleStats __attribute__((unused));
 
 struct rle_stats {
 	tsc_t rle_merge;

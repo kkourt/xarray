@@ -6,8 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if !defined(XARRAY_H__)
-#error "Don't include this file directly. Include xarray.h first!"
+#if !defined(XARRAY_H__) && !defined(XVARRAY_SLA_H)
+#error "Don't include this file directly. Include xarray.h"
 #endif
 
 #include "sla-chunk.h"
@@ -389,13 +389,13 @@ xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
 	return (xelem_t *)((char *)node->chunk + chunk_off);
 }
 
-static size_t
+static inline size_t
 xslice_size(xslice_t *xslice)
 {
 	return xslice->len;
 }
 
-static void
+static inline void
 xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2)
 {
 	size_t l1 = xsl->len / 2;

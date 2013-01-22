@@ -87,7 +87,7 @@ xarr_idx(xarray_t *xarr, long i)
 	size_t xarr_size = xarray_size(xarr);
 	if (i < 0)
 		i = xarr_size + i;
-	assert(idx >= 0 && idx < xarr_size);
+	assert(i >= 0 && i < xarr_size);
 	return i;
 }
 

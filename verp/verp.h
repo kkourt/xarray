@@ -24,7 +24,7 @@ typedef struct verobj verobj_t;
 struct verp;
 typedef struct verp verp_t;
 
-verp_t *verp_allocate(unsigned int bits);
+verp_t *verp_alloc();
 
 #define VERP_NOTFOUND ((void *)(-1))
 

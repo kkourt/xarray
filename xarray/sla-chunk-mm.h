@@ -86,7 +86,7 @@ static __thread struct sla_mm Slamm;
 
 #else /* malloc() implementation */
 
-// ugly include for TIMER functions
+// ugly include for stat functions
 #include "rle_rec_stats.h"
 unsigned rle_getmyid(void);
 

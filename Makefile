@@ -6,9 +6,14 @@ CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                 = $(CILKDIR)/bin/gcc
 #CC                 = gcc
-CFLAGS             = -Wall -O2 -Iinclude -I./rle -I./xarray -std=c99 -ggdb3 -D_GNU_SOURCE
+INCLUDES           = -I./verp -I./include -I./rle -I./xarray
+CFLAGS             = $(INCLUDES) -Wall -O2 -std=c99 -ggdb3 -D_GNU_SOURCE
 CFLAGS            += -DNDEBUG
 LDFLAGS            =
+
+sla_objs           = xarray/sla-chunk.o
+verp_objs          = verp/verp.o verp/ver.o
+xvarray_objs_sla   = $(verp_objs) $(sla_objs)
 
 CILKCC             = $(CILKDIR)/bin/gcc
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
@@ -36,7 +41,8 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
-     floorplan/floorplan-serial floorplan/floorplan
+     floorplan/floorplan-serial floorplan/floorplan \
+     xarray/xvarray-tests/branch_sla
 
 ## xarray
 
@@ -115,6 +121,16 @@ clean:
 	rm -f floorplan/floorplan floorplan/floorplan-serial xarray/*.o
 	#
 	rm -f verp/*.o
+
+
+## xvarray tests
+
+xarray/xvarray-tests/branch_sla.o: xarray/xvarray-tests/branch.c $(hdrs)
+	$(CC) $(CFLAGS) -DXARRAY_SLA__ $< -c -o $@
+
+xarray/xvarray-tests/branch_sla: xarray/xvarray-tests/branch_sla.o $(xvarray_objs_sla)
+	$(CC) $(LDFLAGS) $^ -o $@
+
 
 
 ## Old versions based on cilk, compiled as C
