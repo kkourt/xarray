@@ -127,10 +127,7 @@ xarray_getlast(xarray_t *xarr)
 static inline xelem_t *
 xarray_get(xarray_t *xarr, long idx)
 {
-	size_t xarr_size = xarray_size(xarr);
-	if (idx < 0)
-		idx = xarr_size + idx;
-	assert(idx >= 0 && idx < xarr_size);
+	idx = xarr_idx(xarr, idx);
 
 	sla_node_t *node;
 	size_t chunk_off;
@@ -142,12 +139,8 @@ xarray_get(xarray_t *xarr, long idx)
 static inline xelem_t *
 xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_elems)
 {
+	idx = xarr_idx(xarr, idx);
 	size_t elem_size = xarr->elem_size;
-	size_t xarr_size = xarray_size(xarr);
-	if (idx < 0)
-		idx = xarr_size + idx;
-	assert(idx >= 0 && idx < xarr_size);
-
 	size_t chunk_off;
 	sla_node_t *n = sla_find(&xarr->sla, idx*elem_size, &chunk_off);
 	assert(chunk_off < n->chunk_size);
