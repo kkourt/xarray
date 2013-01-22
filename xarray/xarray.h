@@ -4,6 +4,7 @@
 
 #include <stddef.h> // size_t
 #include <assert.h>
+#include <string.h> // memcpy
 
 #define MIN(x,y) ((x<y) ? (x):(y))
 
@@ -66,6 +67,7 @@ static xelem_t *xarray_get(xarray_t *xarr, long idx);
 static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *nelems);
 static xelem_t *xarray_append(xarray_t *xarr);
 
+// @nelems in prepare is only an output variable
 static xelem_t *xarray_append_prepare(xarray_t *xarr, size_t *nelems);
 static void     xarray_append_finalize(xarray_t *xarr, size_t nelems);
 
@@ -89,6 +91,24 @@ xarr_idx(xarray_t *xarr, long i)
 		i = xarr_size + i;
 	assert(i >= 0 && i < xarr_size);
 	return i;
+}
+
+static inline void
+xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
+{
+	size_t   nelems, elems_i, elem_size;
+	xelem_t *dst;
+
+	elem_size = xarray_elem_size(xarr);
+	elems_i   = 0;
+	while (total_elems > 0) {
+		dst = xarray_append_prepare(xarr, &nelems);
+		nelems = MIN(nelems, total_elems);
+		memcpy(dst, elems + elems_i, nelems*elem_size);
+		xarray_append_finalize(xarr, nelems);
+		elems_i     += nelems;
+		total_elems -= nelems;
+	}
 }
 
 #if defined(XARRAY_DA__)

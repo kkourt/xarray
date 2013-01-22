@@ -140,6 +140,7 @@ xvarray_get_rdwr(xvarray_t *xvarr, long idx)
 		// Create one, and add the pointer for the base version
 		verp = verp_alloc();
 		verp_insert_ptr(verp, xvarr->glbl->v_base, vp);
+		node->chunk = verp_mark_ptr(verp);
 	} else {
 		ver_t *data_ver;
 		verp = vp_unmark_ptr(vp);

@@ -14,6 +14,8 @@ xarray/sla-chunk-tests/find
 xarray/sla-chunk-tests/ptr
 xarray/sla-chunk-tests/pop_tail
 xarray/sla-chunk-tests/ptr-nextchunk
+xarray/sla-chunk-tests/pop_head
+xarray/sla-chunk-tests/size
 Temp-C
 Temp-cilk
 Temp-results
@@ -21,3 +23,5 @@ perf.data
 perf.data.old
 results
 floorplan/floorplan
+floorplan/floorplan-serial
+xarray/xvarray-tests/branch_sla

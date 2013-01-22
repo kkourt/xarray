@@ -33,6 +33,7 @@ void *verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found);
 void  verp_insert_ptr(verp_t *verp, ver_t *ver, void *newp);
 void *verp_update_ptr(verp_t *verp, ver_t *ver, void *newp);
 void  verp_gc(verp_t *verp, ver_t *base);
+void verp_print(struct verp *verp);
 
 /**
  * To save  space and avoid excesive cache polution, we don't use versioned
@@ -79,6 +80,17 @@ verp_mark_ptr(verp_t *verp)
 
 void *vp_ptr(void *vp, ver_t *ver);
 void vp_update(verobj_t *obj, void **vp_ptr, ver_t *ver, void *newp);
+
+static inline void
+vp_print(void *vp)
+{
+	if (vp_is_marked_ptr(vp)) {
+		verp_t *verp = vp_unmark_ptr(vp);
+		verp_print(verp);
+	} else {
+		printf("vp:%p\n", vp);
+	}
+}
 
 // mapping from versions to actual pointers to implement fat nodes
 struct verp_map;

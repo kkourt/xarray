@@ -65,6 +65,21 @@ verpmap_putchain(struct verp_map *vmap, unsigned int bucket)
 	spin_unlock(&vmap->hlocks[bucket]._lock);
 }
 
+static inline void
+verpmap_print(struct verp_map *vmap)
+{
+	struct verp_hnode **chain, *curr;
+
+	for (size_t i=0; i < VERP_HTABLE_SIZE; i++) {
+		chain = verpmap_getchain(vmap, i);
+		for (curr = *chain; curr; curr = curr->next) {
+			printf("  vref:%s ptr:%p\n",
+			        vref_str(curr->vref), curr->ptr);
+		}
+		verpmap_putchain(vmap, i);
+	}
+}
+
 /**
  * get the pointer stored for @ver
  *   returns VERP_NOTFOUND if @ver does not exist
@@ -115,6 +130,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	*chain     = newn;
 	verpmap_putchain(vmap, bucket);
 }
+
 
 /**
  * update a mapping

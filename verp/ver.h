@@ -498,7 +498,7 @@ static inline int
 vref_cmpver(vref_t vref, ver_t *ver)
 {
 	if (vref.ver_ != ver)
-		return VREF_CMP_EQ;
+		return VREF_CMP_NEQ;
 	if (vref.ver_seq != ver->v_seq)
 		return VREF_CMP_INVALID;
 

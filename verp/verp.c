@@ -48,6 +48,13 @@ verp_dealloc(struct verp *verp)
 }
 
 
+void
+verp_print(struct verp *verp)
+{
+	printf("verp: %p\n", verp);
+	verpmap_print(&verp->vpmap);
+}
+
 void *
 verp_find_ptr_exact(verp_t *verp, ver_t *ver)
 {
@@ -79,7 +86,7 @@ void
 verp_insert_ptr(verp_t *verp, ver_t *ver, void *newp)
 {
 	assert(newp != VERP_NOTFOUND);
-	assert(verp_find_ptr(verp, ver, NULL) == VERP_NOTFOUND);
+	assert(verp_find_ptr_exact(verp, ver) == VERP_NOTFOUND);
 	verpmap_set(&verp->vpmap, ver, newp);
 }
 
