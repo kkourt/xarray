@@ -2,9 +2,10 @@
 .PHONY: clean
 
 SLA_DIR      = ..
-SLA_MAKE_DIR = ../..
+TOPDIR       = ../..
 CC           = gcc
-CFLAGS       = -Wall -O2  -I$(SLA_DIR) -I$(SLA_MAKE_DIR) -std=c99 -D_GNU_SOURCE
+CFLAGS       = -Wall -O2  -I$(SLA_DIR) -I$(TOPDIR)/include -I$(TOPDIR)/rle -std=c99 -D_GNU_SOURCE
+CFLAGS      += -DNO_RLE_STATS
 
 #CFLAGS      += -Wall -Wno-format-y2k -W -Wstrict-prototypes \
 #               -Wmissing-prototypes -Wpointer-arith -Wreturn-type \
@@ -20,7 +21,7 @@ progs   := $(patsubst %.c,%,$(wildcard *.c))
 all: $(progs) 
 
 $(SLA_OBJ):
-	make -C $(SLA_MAKE_DIR)
+	make -C $(TOPDIR)
 
 %.s: %.c
 	$(CC) $(CFLAGS) -fverbose-asm -S $<

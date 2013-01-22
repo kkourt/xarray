@@ -6,9 +6,10 @@
 #include "misc.h"
 #include "tsc.h"
 
+// ugh
+#if !defined(NO_RLE_STATS)
 #define RLE_STATS // enable stats
-
-
+#endif
 
 #define DECLARE_RLE_STATS rle_stats_t *RleStats;
 
