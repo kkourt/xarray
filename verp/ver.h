@@ -8,8 +8,6 @@
 #include "container_of.h"
 #include "misc.h"
 
-#include "vbpt_stats.h"
-
 // Versions form a tree (partial order) as defined by the ->parent pointer.
 
 // We use a ->parent pointer to track the partial order to enable for
@@ -53,8 +51,6 @@
  * ver_getref():    get a version reference
  * ver_putref():    put a version reference
  *
- * ver_rebase():    change parent
- *
  * ver_pin():       pin a version
  *
  * ver_eq():        check two versions for equality
@@ -63,13 +59,18 @@
  *
  */
 
+#define V_LOG_UINTPTRS 8
 struct ver {
-
 	struct ver *parent;
 	#ifndef NDEBUG
 	size_t     v_id;
 	#endif
+
+	uint64_t   v_seq;
 	refcnt_t   rfcnt;
+
+	// this is to be used by the user of ver.h
+	uintptr_t  v_log[V_LOG_UINTPTRS];
 };
 typedef struct ver ver_t;
 
@@ -87,9 +88,6 @@ ver_init__(ver_t *ver)
 	#ifndef NDEBUG
 	ver_debug_init(ver);
 	#endif
-
-	// XXX: ugly but useful
-	ver->v_log.state = VBPT_LOG_UNINITIALIZED;
 }
 
 static inline char *
@@ -128,6 +126,7 @@ ver_fullstr(ver_t *ver)
 	static char buff_arr[VERSTR_BUFFS_NR][VERSTR_BUFF_SIZE];
 	char *buff = buff_arr[i++ % VERSTR_BUFFS_NR];
 
+	#ifndef NDEBUG
 	snprintf(buff, VERSTR_BUFF_SIZE,
 	         " [%p: ver:%3zd rfcnt:%3u] ",
 		 ver,
@@ -152,7 +151,7 @@ ver_path_print(ver_t *v, FILE *fp)
 }
 
 static inline ver_t *
-refcnt_total2ver(refcnt_t *rcnt)
+refcnt2ver(refcnt_t *rcnt)
 {
 	return container_of(rcnt, ver_t, rfcnt);
 }
@@ -167,38 +166,32 @@ ver_getref(ver_t *ver)
 	return ver;
 }
 
-static void ver_release(refcnt_t *);
+static void *ver_release(refcnt_t *);
 
 /**
  * release a node reference
+ *  returns the last version that was not released
+ *  Note that if everything is released, this returns NULL
  */
-static inline void
+static inline void *
 ver_putref(ver_t *ver)
 {
-	refcnt_dec(&ver->rfcnt, ver_release);
-}
-
-// grab a child reference
-static inline void
-ver_get_child_ref(ver_t *ver)
-{
-	refcnt_inc(&ver->rfcnt);
-}
-
-// put a child reference
-static inline void
-ver_put_child_ref(ver_t *ver)
-{
-	refcnt_dec(&ver->rfcnt, ver_release);
+	void *ret;
+	ret = refcnt_dec(&ver->rfcnt, ver_release);
+	if (ret == (void *)-1) {
+		ret = ver;
+	}
+	return ret;
 }
 
 /**
  * release a version
  */
-static void
+static void *
 ver_release(refcnt_t *refcnt)
 {
-	ver_t *ver = refcnt_total2ver(refcnt);
+	void  *ret;
+	ver_t *ver = refcnt2ver(refcnt);
 	#if 0
 	// this is special case where a version is no longer references in a
 	// tree, but is a part of the version tree. I think the best solution is
@@ -212,13 +205,14 @@ ver_release(refcnt_t *refcnt)
 	#endif
 
 	ver_t *parent = ver->parent;
-	if (ver->parent != NULL)
-		ver_put_child_ref(parent);
-
-	if (ver->v_log.state != VBPT_LOG_UNINITIALIZED)
-		vbpt_log_destroy(&ver->v_log);
+	if (ver->parent != NULL) {
+		ret = ver_putref(parent);
+	} else {
+		ret = NULL;
+	}
 
 	ver_mm_free(ver);
+	return ret;
 }
 
 /* create a new version */
@@ -282,13 +276,13 @@ ver_tree_gc(ver_t *ver)
 	//VBPT_XCNT_ADD(ver_tree_gc_iters, count);
 	//tmsg("count=%lu ver->parent=%p\n", count, ver->parent);
 
-	// do it lazily? 
-	// maintain a chain and cal ver_put_child_ref() on allocation
+	// do it lazily?
+	// maintain a chain and cal ver_putref() on allocation
 	ver_t *v = ver->parent;
 	while (v != NULL) {
 		ver_t *tmp = v->parent;
 		v->parent = NULL;       // remove @v from chain
-		ver_put_child_ref(v);
+		ver_putref(v);
 		v = tmp;
 	}
 
@@ -332,47 +326,8 @@ ver_unpin(ver_t *ver)
 static inline void
 ver_setparent__(ver_t *v, ver_t *parent)
 {
-	ver_get_child_ref(parent);
+	ver_getref(parent);
 	v->parent = parent;
-}
-
-/**
- * prepare a version rebase.  at the new parent won't be removed from the
- * version chain under our nose
- */
-static inline void
-ver_rebase_prepare(ver_t *new_parent)
-{
-	ver_get_child_ref(new_parent);
-}
-
-static inline void
-ver_rebase_commit(ver_t *ver, ver_t *new_parent)
-{
-	if (ver->parent)
-		ver_put_child_ref(ver->parent);
-	ver->parent = new_parent;
-}
-
-static inline void
-ver_rebase_abort(ver_t *new_parent)
-{
-	ver_put_child_ref(new_parent);
-}
-
-/**
- * rebase: set a new parent to a version.
- *  If previous parent is not NULL, refcount will be decreased
- *  Will get a new referece of @new_parent
- */
-static inline void __attribute__((deprecated))
-ver_rebase(ver_t *ver, ver_t *new_parent)
-{
-	if (ver->parent) {
-		ver_put_child_ref(ver->parent);
-		//ver_tree_gc(ver);
-	}
-	ver_setparent__(ver, new_parent);
 }
 
 /**
@@ -383,7 +338,7 @@ static inline void
 ver_detach(ver_t *ver)
 {
 	if (ver->parent) {
-		ver_put_child_ref(ver->parent);
+		ver_putref(ver->parent);
 		//ver_tree_gc(ver);
 	}
 	ver->parent = NULL;
@@ -489,83 +444,91 @@ ver_ancestor_strict_limit(ver_t *v_p, ver_t *v_ch, uint16_t max_d)
 #define VER_JOIN_FAIL ((ver_t *)(~((uintptr_t)0)))
 #define VER_JOIN_LIMIT 64
 
-ver_t *
-ver_join_slow(ver_t *gver, ver_t *pver, ver_t **prev_pver,
-              uint16_t *gdist, uint16_t *pdist);
-
-/**
- * find the join point (largest common ancestor) of two versions
- *
- * The main purpose of this is to find the common ancestor of two versions.
- * Given our model, however, it gets a bit more complicated than that.
- * We assume that the join is performed between two versions:
- *  - @gver: the current version of the object (read-only/globally viewable)
- *  - @pver: a diverged version, private to the transaction
- *
- * The actual join operation (find the common ancestor) is symmetric, but we
- * neeed to distinguish between the two versions because after we (possibly)
- * merge the two versions, we need to modify the version tree (see merge
- * operation), which requires more information than the common ancestor.
- * Specifically, we need to move @pver under @gver, so we need last node in the
- * path from @pver to the common ancestor (@prev_v). This node is returned in
- * @prev_v, if @prev_v is not NULL.
- *
- *        (join_v)    <--- return value
- *       /        \
- *  (prev_v)      ...
- *     |           |
- *    ...        (gver)
- *     |
- *   (pver)
- *
- * Furthermore, another useful property for the merge algorithm is to now the
- * distance of each version from the join point. This allows to have more
- * efficient checks on whether a version found in the tree is before or after
- * the join point. The distance of the join point from @gver (@pver) is returned
- * in @gdist (@pdist).
- */
-static inline ver_t *
-ver_join(ver_t *gver, ver_t *pver, ver_t **prev_v, uint16_t *gdist, uint16_t *pdist)
-{
-	/* this is the most common case, do it first */
-	if (gver->parent == pver->parent) {
-		assert(pver->parent != NULL);
-		if (prev_v)
-			*prev_v = pver;
-		*gdist = *pdist = 1;
-		return pver->parent;
-	}
-	return ver_join_slow(gver, pver, prev_v, gdist, pdist);
-
-}
-
 static inline ver_t *
 ver_parent(ver_t *ver)
 {
 	return ver->parent;
 }
 
-/*
- * Log helpers
- */
-static inline ver_t *
-vbpt_log2ver(vbpt_log_t *log)
-{
-	return container_of(log, ver_t, v_log);
-}
-
 /**
- * return the parent log
- *  Assumption: this is a log embedded in a version
+ * Version references.
  */
-static inline vbpt_log_t *
-vbpt_log_parent(vbpt_log_t *log)
+
+// a reference to a version
+struct vref {
+	struct ver *ver_;
+	uint64_t    ver_seq;
+	#ifndef NDEBUG
+	size_t      vid;
+	#endif
+};
+typedef struct vref vref_t;
+
+static inline vref_t
+vref_get(ver_t *ver)
 {
-	ver_t *ver = vbpt_log2ver(log);
-	ver_t *ver_p = ver_parent(ver);
-	return (ver_p != NULL) ? &ver_p->v_log : NULL;
+	vref_t ret;
+	ret.ver_    = ver;
+	ret.ver_seq = ver->v_seq;
+	#if !defined(NDEBUG)
+	ret.vid = ver->v_id;
+	#endif
+	return ret;
 }
 
+static inline void
+vref_put(vref_t vref)
+{
+}
 
+static inline bool
+vref_eq(vref_t vref1, vref_t vref2)
+{
+	bool ret = (vref1.ver_ == vref2.ver_)
+	           && (vref1.ver_seq == vref2.ver_seq);
+	return ret;
+}
+
+enum {
+	VREF_CMP_EQ,      // equal
+	VREF_CMP_NEQ,     // not equal: ->ver does not match
+	VREF_CMP_INVALID  // invalid ->ver matches, but has older seq number
+};
+static inline int
+vref_cmpver(vref_t vref, ver_t *ver)
+{
+	if (vref.ver_ != ver)
+		return VREF_CMP_EQ;
+	if (vref.ver_seq != ver->v_seq)
+		return VREF_CMP_INVALID;
+
+	return VREF_CMP_EQ;
+}
+
+static inline bool
+vref_eqver(vref_t vref, ver_t *ver)
+{
+	bool ret = (vref.ver_ == ver)
+	           && (vref.ver_seq == ver->v_seq);
+	return ret;
+}
+
+static inline char *
+vref_str(vref_t vref)
+{
+	#define VREFSTR_BUFF_SIZE 128
+	#define VREFSTR_BUFFS_NR   16
+	static int i=0;
+	static char buff_arr[VREFSTR_BUFFS_NR][VREFSTR_BUFF_SIZE];
+	char *buff = buff_arr[i++ % VREFSTR_BUFFS_NR];
+	#ifndef NDEBUG
+	snprintf(buff, VREFSTR_BUFF_SIZE, " [ver:%3zd] ", vref.vid);
+	#else
+	snprintf(buff, VREFSTR_BUFF_SIZE, " (ver:%p ) ", vref.ver_);
+	#endif
+	return buff;
+	#undef VREFSTR_BUFF_SIZE
+	#undef VREFSTR_BUFF_NR
+}
 
 #endif

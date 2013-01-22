@@ -2,7 +2,13 @@
 #define VERP_HTABLE_H
 
 #include "ver.h"
+#include "verp.h"
 #include "hash.h"
+#include "misc.h"
+
+#if !defined(VERP_H)
+#error "Don't include this file directly, use verp.h"
+#endif
 
 /*
  * low-level version-to-pointer mapping
@@ -14,7 +20,7 @@
 #define VERP_HTABLE_SIZE  (1UL<<VERP_HTABLE_BITS)
 
 struct verp_hnode {
-	ver_t             *ver;
+	struct vref       vref;
 	void              *ptr;
 	struct verp_hnode *next;
 } __attribute__ ((aligned(CACHELINE_BYTES)));
@@ -32,8 +38,6 @@ struct verp_map {
 	struct verp_hnode *htable[VERP_HTABLE_SIZE];
 	struct verp_hlock  hlocks[VERP_HTABLE_SIZE];
 	#if 0
-	verp_htable_t **htable;
-	verp_hlocks_t  *locks;
 	unsigned       hsize;
 	unsigned       hbits;
 	#endif
@@ -43,21 +47,22 @@ static inline void
 verp_map_init(struct verp_map *vmap)
 {
 	for (size_t i=0; i < VERP_HTABLE_SIZE; i++) {
-		vpm->htable[i] = NULL;
-		pthread_spin_init(vpm->hlocks[i]._lock);
+		vmap->htable[i] = NULL;
+		spinlock_init(&vmap->hlocks[i]._lock);
 	}
 }
 
 static inline struct verp_hnode **
+verpmap_getchain(struct verp_map *vmap, unsigned int bucket)
 {
-	pthread_spin_lock(&verp->locks[bucket]._lock);
-	return &verp->htable[bucket];
+	spin_lock(&vmap->hlocks[bucket]._lock);
+	return &vmap->htable[bucket];
 }
 
 static inline void
-verpmap_putchain(struct verp_map *vpm, unsigned int bucket)
+verpmap_putchain(struct verp_map *vmap, unsigned int bucket)
 {
-	pthread_spin_unlock(&verp->locks[bucket]._lock);
+	spin_unlock(&vmap->hlocks[bucket]._lock);
 }
 
 /**
@@ -65,24 +70,26 @@ verpmap_putchain(struct verp_map *vpm, unsigned int bucket)
  *   returns VERP_NOTFOUND if @ver does not exist
  */
 static inline void *
-verpmap_get(struct verp_map *vpm, ver_t *ver)
+verpmap_get(struct verp_map *vmap, ver_t *ver)
 {
 	struct verp_hnode **chain, *curr;
 	unsigned int bucket;
 	void *ret;
 
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
-	chain = verpmap_getchain(vpm, bucket);
+	chain = verpmap_getchain(vmap, bucket);
+	ret   = VERP_NOTFOUND;
 	for (curr = *chain; curr; curr = curr->next) {
-		if (curr == NULL) {
-			ret = VERP_NOTFOUND;
+		int cmp = vref_cmpver(curr->vref, ver);
+		if (cmp == VREF_CMP_INVALID) {
+			// TODO
+			// invalid, remove mapping
+		} else if (cmp == VREF_CMP_EQ) {
+			ret = curr->ptr;
 			break;
-		} else if (ver_eq(curr->ver, ver)) {
-			ret = curr->ptr
-			break;
-		}
+		} else assert(cmp == VREF_CMP_NEQ);
 	}
-	verpmap_putchain(vpm, bucket);
+	verpmap_putchain(vmap, bucket);
 	return ret;
 }
 
@@ -93,20 +100,20 @@ verpmap_get(struct verp_map *vpm, ver_t *ver)
  *   grabs a reference for @ver
  */
 static inline void
-verpmap_set(struct verp_map *vpm, ver_t *ver, void *newp)
+verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 {
 	struct verp_hnode **chain, *newn;
 	unsigned int bucket;
 
 	newn = xmalloc(sizeof(struct verp_hnode));
-	newn->ver = ver_getref(ver);
-	newn->ptr = newp;
+	newn->vref = vref_get(ver);
+	newn->ptr  = newp;
 
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
-	chain = verpmap_getchain(vpm, bucket);
+	chain = verpmap_getchain(vmap, bucket);
 	newn->next = *chain;
 	*chain     = newn;
-	verpmap_putchain(vpm, bucket);
+	verpmap_putchain(vmap, bucket);
 }
 
 /**
@@ -116,17 +123,17 @@ verpmap_set(struct verp_map *vpm, ver_t *ver, void *newp)
  *   If a mapping does exist, just change it and return the old pointer.
  */
 static inline void *
-verpmap_update(struct verp_map *vpm, ver_t *ver, void *newp)
+verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 {
 	struct verp_hnode **chain, *curr, *newn;
 	unsigned int bucket;
 	void *ret;
 
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
-	chain = verpmap_getchain(vpm, bucket)
+	chain = verpmap_getchain(vmap, bucket);
 	// check if version already exists
 	for (curr=*chain; curr; curr = curr->next) {
-		if (ver_eq(curr->ver, ver)) {
+		if (vref_eqver(curr->vref, ver)) {
 			ret = curr->ptr;
 			curr->ptr = newp;
 			goto end;
@@ -136,27 +143,28 @@ verpmap_update(struct verp_map *vpm, ver_t *ver, void *newp)
 	// version does not exist, allocate node and insert it
 	ret = VERP_NOTFOUND;
 	newn = xmalloc(sizeof(struct verp_hnode));
-	newn->ver = ver_getref(ver);
-	newn->ptr = newp;
+	newn->vref = vref_get(ver);
+	newn->ptr  = newp;
 
 	newn->next = *chain;
 	*chain     =  newn;
 
 end:
-	verp_putchain(verp, bucket);
+	verpmap_putchain(vmap, bucket);
+	return ret;
 }
 
 static inline void
-verpmap_reset(struct verp_map *vpm)
+verpmap_reset(struct verp_map *vmap)
 {
 	struct verp_hnode **chain, *curr;
 
 	for (unsigned i=0; i<VERP_HTABLE_SIZE; i++) {
-		chain = verpmap_getchain(vpm, i);
+		chain = verpmap_getchain(vmap, i);
 		for (curr = *chain; curr; curr = curr->next)
-			ver_putref(curr->ver);
+			vref_put(curr->vref);
 		*chain = NULL;
-		verpmap_putchain(vpm, i);
+		verpmap_putchain(vmap, i);
 	}
 }
 

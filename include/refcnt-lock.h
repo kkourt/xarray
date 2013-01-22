@@ -81,20 +81,22 @@ refcnt_inc(refcnt_t *rcnt)
 }
 
 
-static inline int
-refcnt_dec(refcnt_t *rcnt, void  (*release)(refcnt_t *))
+// returns what release() if it is called, or (void *)-1
+static inline void *
+refcnt_dec(refcnt_t *rcnt, void *(*release)(refcnt_t *))
 {
 	assert(rcnt->cnt > 0);
 	spin_lock(&rcnt->lock);
 	if (--rcnt->cnt == 0) {
-		release(rcnt);
+		void *ret;
+		ret = release(rcnt);
 		// this is ugly, but since the lock lives in refcnt, and refcnt
 		// is part of the object that is going to be released, we can't
 		// unlock(), because after the release we don't own the memory
-		return 1;
+		return ret;
 	}
 	spin_unlock(&rcnt->lock);
-	return 0;
+	return (void *)-1;
 }
 
 #endif /* REFCNT_H_ */

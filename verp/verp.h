@@ -1,15 +1,10 @@
-#ifndef VERP_H__
-#define VERP_H__
-
-#ifndef CACHELINE_BYTES
-#define CACHELINE_BYTES 256
-#endif /* CACHELINE_BYTES */
+#ifndef VERP_H
+#define VERP_H
 
 #include <stdint.h>
 #include <pthread.h>
 
 #include "ver.h"
-
 
 /* versioned object structure
  *  We only need to keep versions that are >@ver_base in the partial order
@@ -26,14 +21,7 @@ typedef struct verobj verobj_t;
  *
  */
 
-// mapping from versions to actual pointers to implement fat nodes
-struct verp_map;
-
-/* versioned pointer structure */
-struct verp {
-	struct verp_map vpmap;
-	struct verp     *__cache_next;
-};
+struct verp;
 typedef struct verp verp_t;
 
 verp_t *verp_allocate(unsigned int bits);
@@ -92,5 +80,17 @@ verp_mark_ptr(verp_t *verp)
 void *vp_ptr(void *vp, ver_t *ver);
 void vp_update(verobj_t *obj, void **vp_ptr, ver_t *ver, void *newp);
 
+// mapping from versions to actual pointers to implement fat nodes
+struct verp_map;
 
-#endif /* VERP_H__ */
+// verp_map using hash table
+#include "verp_htable.h"
+
+/* versioned pointer structure */
+struct verp {
+	struct verp_map vpmap;
+	struct verp     *__cache_next;
+};
+
+
+#endif /* VERP_H */

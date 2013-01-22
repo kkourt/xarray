@@ -1,5 +1,7 @@
 .PHONY: all clean
 
+USE_TCMALLOC  = 1
+
 CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                 = $(CILKDIR)/bin/gcc
@@ -8,20 +10,27 @@ CFLAGS             = -Wall -O2 -Iinclude -I./rle -I./xarray -std=c99 -ggdb3 -D_G
 CFLAGS            += -DNDEBUG
 LDFLAGS            =
 
-## tcmalloc
-GPERFDIR           = /home/netos/tools/akourtis/gperftools/install
-CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
-CFLAGS            += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free
-LDFLAGS           += -ltcmalloc -L$(GPERFDIR)/lib -Xlinker -rpath=$(GPERFDIR)/lib
-
 CILKCC             = $(CILKDIR)/bin/gcc
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
 CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
 
+ifeq (1,$(USE_TCMALLOC))
+	CFLAGS    += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -ltcmalloc
+	# check for custom installation of gperftools
+	GPERFDIR   = /home/netos/tools/akourtis/gperftools/install
+	LDFLAGS    = -ltcmalloc
+	ifeq ($(strip $(wildcard $(GPERFDIR))),$(GPERFDIR))
+		LDFLAGS += -L$(GPERFDIR)/lib -Xlinker -rpath=$(GPERFDIR)/lib
+	endif
+endif
+
+## create dependencies for all headers
+## TODO: http://stackoverflow.com/questions/2394609/makefile-header-dependencies
 hdrs  =$(wildcard rle/*.h)
 hdrs +=$(wildcard xarray/*.h)
 hdrs +=$(wildcard include/*.h)
+hdrs +=$(wildcard verp/*.h)
 
 all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
@@ -89,11 +98,23 @@ floorplan/floorplan: floorplan/floorplan.o
 floorplan/floorplan-serial: floorplan/floorplan-serial.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $< -o $@
 
+## verp
+
+verp/verp.o verp/ver.o: %.o: %.c $(hdrs)
+	$(CC) $(LDFLAGS) $(CFLAGS) -c $< -o $@
+
 clean:
-	rm -f rle/*.o xarray/*.o
+	rm -f xarray/*.o
+	#
+	rm -f rle/*.o
 	rm -f rle/rle_rec prle_rec    rle/rle_rec_mpools rle/prle_rec_mpools
 	rm -f rle/prle_rec_xarray_da  rle/rle_rec_xarray_da
 	rm -f rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
+	#
+	rm -f floorplan/*.o
+	rm -f floorplan/floorplan floorplan/floorplan-serial xarray/*.o
+	#
+	rm -f verp/*.o
 
 
 ## Old versions based on cilk, compiled as C

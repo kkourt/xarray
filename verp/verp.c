@@ -15,15 +15,6 @@ static __thread struct {
 } __attribute__((aligned(128))) VerpCache = {0};
 
 
-ver_t *
-ver_alloc(ver_t *parent)
-{
-	ver_t *ret;
-	ret = xmalloc(sizeof(ver_t));
-	ret->parent = parent;
-	return ret;
-}
-
 void
 verp_init(void)
 {
@@ -41,8 +32,8 @@ verp_alloc(void)
 		VerpCache.verp_list = ret->__cache_next;
 		VerpCache.verp_nr--;
 	} else {
-		verp = xmalloc(sizeof(struct verp));
-		verp_map_init(ret);
+		ret = xmalloc(sizeof(struct verp));
+		verp_map_init(&ret->vpmap);
 	}
 
 	return ret;
@@ -57,6 +48,12 @@ verp_dealloc(struct verp *verp)
 }
 
 
+void *
+verp_find_ptr_exact(verp_t *verp, ver_t *ver)
+{
+	return verpmap_get(&verp->vpmap, ver);
+}
+
 /* return a pointer given a versioned pointer and a version */
 void *
 verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found)
@@ -65,7 +62,7 @@ verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found)
 	void *ptr;
 	//printf("\t  Searching for ptr=%p ver=%p\n", verp, ver);
 	while (v != NULL) {
-		ptr = verpmap_get(&verp->vpm, v);
+		ptr = verpmap_get(&verp->vpmap, v);
 		if (ptr != VERP_NOTFOUND) {
 			if (ver_found)
 				*ver_found = v;
@@ -83,7 +80,7 @@ verp_insert_ptr(verp_t *verp, ver_t *ver, void *newp)
 {
 	assert(newp != VERP_NOTFOUND);
 	assert(verp_find_ptr(verp, ver, NULL) == VERP_NOTFOUND);
-	verpmap_set(&verp->vpm, ver, newp);
+	verpmap_set(&verp->vpmap, ver, newp);
 }
 
 /* update a version of the versioned pointer. Return the old pointer if existed,
@@ -92,7 +89,7 @@ void *
 verp_update_ptr(verp_t *verp, ver_t *ver, void *newp)
 {
 	assert(newp != VERP_NOTFOUND);
-	return verpmap_update(&verp->vpm, ver, newp);
+	return verpmap_update(&verp->vpmap, ver, newp);
 }
 
 void
@@ -133,6 +130,7 @@ vp_update(verobj_t *obj, void **vp_ptr, ver_t *ver, void *newp)
 		// we need a new verp
 		verp = verp_alloc();
 		// insert normal pointer as base version
+		// XXX: maybe s/update/inserT?
 		verp_update_ptr(verp, obj->ver_base, *vp_ptr);
 	} else {
 		verp = vp_unmark_ptr(*vp_ptr);

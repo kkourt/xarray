@@ -11,7 +11,9 @@ Approach 1:
 	for (v = ver; ; v = v->parent) {
 		if ((ptr = mapping.get(v)) != NULL) {
 			break;
-		} else if (v == base) {
+		}
+
+		if (v == base) {
 			gc = 1;
 		}
 	}
@@ -19,7 +21,6 @@ Approach 1:
 		mapping.reset() // should decrease reference counts of all versions and call ptr_dealloc() on objects
 		mapping.set(base, ptr)
 	}
-
 	return ptr;
 
     vptr.put(vx, px):
@@ -37,3 +38,33 @@ Approach 1:
    - A mapping from versions to pointers, would help removing the mappings
    - We might consider ephemeral versions, where the changes are kept externally
      and then commited by actually inserting q
+
+
+Versions are referenced:
+ by ->parent pointers
+ by mv objects
+ by version to ptr mappings in fat nodes
+   |
+   |-----> These make GC difficult. Can be replaced with v_refs?
+
+
+So: 
+	for (v = ver; ; v = v->parent) {
+		if mapping for v exists:
+			(ptr, id) = mapping.get(v)
+			if (id == v->id)
+				break;
+			else remove mapping
+
+		if (v == base) {
+			gc = 1;
+		}
+	}
+	if (gc == 1) {
+		mapping.reset() // should decrease reference counts of all versions and call ptr_dealloc() on objects
+		mapping.set(base, ptr)
+	}
+	return ptr;
+
+
+ Vers can have a (constant) buffer of vpts where mappings are holded

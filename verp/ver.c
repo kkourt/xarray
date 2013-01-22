@@ -9,6 +9,9 @@
 #error "NYI"
 #endif
 
+// on free(), update (atomically) ver_seq_max = MAX(ver_seq_max, v->v_seq +1)
+// Curently, we don't use the above since we dont free() versions
+static uint64_t ver_seq_max = 0;
 
 #if defined(VERS_MM)
 
@@ -25,10 +28,12 @@ ver_mm_alloc(void)
 	#if defined(VERS_MM)
 	if (Ver_mm.vers_nr == 0) {
 		ret = xmalloc(sizeof(*ret));
+		ret->v_seq = ver_seq_max;
 	} else {
 		ret = Ver_mm.vers;
 		Ver_mm.vers = ret->parent;
 		Ver_mm.vers_nr--;
+		ret->v_seq++;
 	}
 	#else // !VERS_MM
 	ret = xmalloc(sizeof(*ret));
@@ -77,41 +82,3 @@ ver_chain_print(ver_t *ver)
 	}
 	printf("=========================================================\n");
 }
-
-/**
- * see ver_join()
- *
- * We can avoid the O(n^2) thing by keeping a hash table for all the versions on
- * the global path, so that we can iterate the pver path and check membership.
- */
-ver_t *
-ver_join_slow(ver_t *gver, ver_t *pver, ver_t **prev_pver,
-              uint16_t *gdist, uint16_t *pdist)
-{
-	ver_t *gv = gver;
-	for (unsigned gv_i = 0; gv_i < VER_JOIN_LIMIT; gv_i++) {
-		ver_t *pv = pver;
-		for (unsigned pv_i=0 ; pv_i < VER_JOIN_LIMIT; pv_i++) {
-			if (pv->parent == gv->parent) {
-				if (prev_pver)
-					*prev_pver = pv;
-				assert(pv->parent != NULL);
-				*gdist = gv_i + 1;
-				*pdist = pv_i + 1;
-				return pv->parent;
-			}
-
-			if ((pv = pv->parent) == NULL)
-				break;
-		}
-		if ((gv = gv->parent) == NULL)
-			break;
-	}
-
-	// gdist, pdist won't get used if VER_JOIN_FAIL is returned, but the
-	// compiler can't seem to be able to figure that out and complains about
-	// uninitialized values
-	*gdist = *pdist = ~0;
-	return VER_JOIN_FAIL;
-}
-
