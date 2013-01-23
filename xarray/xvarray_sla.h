@@ -131,7 +131,7 @@ xvarray_get_rdwr(xvarray_t *xvarr, long idx)
 		// XXX: there is a race on xvarr->glbl->v_base here, but I don't
 		// think it matters, as long as we either get the old or the new
 		// ->v_base
-		if (xvarr->xv_ver == xvarr->glbl->v_base) {
+		if (ver_eq(xvarr->xv_ver, xvarr->glbl->v_base)) {
 			// just a pointer and we are the base, just return the
 			// pointer
 			goto end;

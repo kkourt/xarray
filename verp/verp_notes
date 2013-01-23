@@ -2,11 +2,21 @@
 Versioning for SLAs
  - only for data -- i.e., size/structure can't change
 
-Versions define a partial order. We define a base version. We guarantee that no
-requests will be made for vs < base.
+Each vptr maintains a (version -> ptr mapping); we use this mapping to
+determine the version:
 
-Approach 1:
-  - each pointer maintains a (version -> ptr) mapping  using a hash table.
+#### Alg.1:
+    vptr.get(ver):
+	for (v = ver; ; v = v->parent) {
+		if ((ptr = mapping.get(v)) != NULL) {
+			break;
+		}
+	}
+	return ptr;
+
+The user defines a base version. This can be used to aid GC
+
+#### Alg.2:
     vptr.get(ver):
 	for (v = ver; ; v = v->parent) {
 		if ((ptr = mapping.get(v)) != NULL) {
@@ -23,10 +33,18 @@ Approach 1:
 	}
 	return ptr;
 
-    vptr.put(vx, px):
-	htable.set(vx, px)
 
-   -> also with array, binary search + resize
+Versions are referenced:
+ by ->parent pointers
+ by mv objects
+ by version to ptr mappings in fat nodes
+   |
+   |-----> These make GC difficult. Can be replaced with v_refs?
+   NO (or to rephrase NOT EASILY):
+   because we need to guarantee that we can always find a mapping for all
+   vptrs. So, for example, we might end up with only invalid versions on a vptr
+   map. Also, we might end up with versions that are all "older" than the base
+   and then we don't have a way of knowing the "correct" mapping.
 
 
 - Ephemeral versions?
@@ -38,33 +56,6 @@ Approach 1:
    - A mapping from versions to pointers, would help removing the mappings
    - We might consider ephemeral versions, where the changes are kept externally
      and then commited by actually inserting q
-
-
-Versions are referenced:
- by ->parent pointers
- by mv objects
- by version to ptr mappings in fat nodes
-   |
-   |-----> These make GC difficult. Can be replaced with v_refs?
-
-
-So: 
-	for (v = ver; ; v = v->parent) {
-		if mapping for v exists:
-			(ptr, id) = mapping.get(v)
-			if (id == v->id)
-				break;
-			else remove mapping
-
-		if (v == base) {
-			gc = 1;
-		}
-	}
-	if (gc == 1) {
-		mapping.reset() // should decrease reference counts of all versions and call ptr_dealloc() on objects
-		mapping.set(base, ptr)
-	}
-	return ptr;
 
 
  Vers can have a (constant) buffer of vpts where mappings are holded

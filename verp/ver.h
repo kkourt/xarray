@@ -66,7 +66,9 @@ struct ver {
 	size_t     v_id;
 	#endif
 
+	#if defined(VER_VREF)
 	uint64_t   v_seq;
+	#endif
 	refcnt_t   rfcnt;
 
 	// this is to be used by the user of ver.h
@@ -450,6 +452,7 @@ ver_parent(ver_t *ver)
 	return ver->parent;
 }
 
+#if defined(VER_VREF)
 /**
  * Version references.
  */
@@ -530,5 +533,6 @@ vref_str(vref_t vref)
 	#undef VREFSTR_BUFF_SIZE
 	#undef VREFSTR_BUFF_NR
 }
+#endif
 
 #endif

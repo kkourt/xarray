@@ -20,7 +20,7 @@
 #define VERP_HTABLE_SIZE  (1UL<<VERP_HTABLE_BITS)
 
 struct verp_hnode {
-	struct vref       vref;
+	ver_t             *ver;
 	void              *ptr;
 	struct verp_hnode *next;
 } __attribute__ ((aligned(CACHELINE_BYTES)));
@@ -73,8 +73,8 @@ verpmap_print(struct verp_map *vmap)
 	for (size_t i=0; i < VERP_HTABLE_SIZE; i++) {
 		chain = verpmap_getchain(vmap, i);
 		for (curr = *chain; curr; curr = curr->next) {
-			printf("  vref:%s ptr:%p\n",
-			        vref_str(curr->vref), curr->ptr);
+			printf("  ver:%s ptr:%p\n",
+			        ver_str(curr->ver), curr->ptr);
 		}
 		verpmap_putchain(vmap, i);
 	}
@@ -92,17 +92,13 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 	void *ret;
 
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
-	chain = verpmap_getchain(vmap, bucket);
-	ret   = VERP_NOTFOUND;
+	chain  = verpmap_getchain(vmap, bucket);
+	ret    = VERP_NOTFOUND;
 	for (curr = *chain; curr; curr = curr->next) {
-		int cmp = vref_cmpver(curr->vref, ver);
-		if (cmp == VREF_CMP_INVALID) {
-			// TODO
-			// invalid, remove mapping
-		} else if (cmp == VREF_CMP_EQ) {
+		if (ver_eq(curr->ver, ver)) {
 			ret = curr->ptr;
 			break;
-		} else assert(cmp == VREF_CMP_NEQ);
+		}
 	}
 	verpmap_putchain(vmap, bucket);
 	return ret;
@@ -121,7 +117,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	unsigned int bucket;
 
 	newn = xmalloc(sizeof(struct verp_hnode));
-	newn->vref = vref_get(ver);
+	newn->ver = ver_getref(ver);
 	newn->ptr  = newp;
 
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
@@ -149,7 +145,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 	chain = verpmap_getchain(vmap, bucket);
 	// check if version already exists
 	for (curr=*chain; curr; curr = curr->next) {
-		if (vref_eqver(curr->vref, ver)) {
+		if (ver_eq(curr->ver, ver)) {
 			ret = curr->ptr;
 			curr->ptr = newp;
 			goto end;
@@ -159,8 +155,8 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 	// version does not exist, allocate node and insert it
 	ret = VERP_NOTFOUND;
 	newn = xmalloc(sizeof(struct verp_hnode));
-	newn->vref = vref_get(ver);
-	newn->ptr  = newp;
+	newn->ver = ver_getref(ver);
+	newn->ptr = newp;
 
 	newn->next = *chain;
 	*chain     =  newn;
@@ -178,7 +174,7 @@ verpmap_reset(struct verp_map *vmap)
 	for (unsigned i=0; i<VERP_HTABLE_SIZE; i++) {
 		chain = verpmap_getchain(vmap, i);
 		for (curr = *chain; curr; curr = curr->next)
-			vref_put(curr->vref);
+			ver_putref(curr->ver);
 		*chain = NULL;
 		verpmap_putchain(vmap, i);
 	}

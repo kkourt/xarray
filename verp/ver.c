@@ -9,9 +9,11 @@
 #error "NYI"
 #endif
 
+#if defined(VER_VREF)
 // on free(), update (atomically) ver_seq_max = MAX(ver_seq_max, v->v_seq +1)
 // Curently, we don't use the above since we dont free() versions
 static uint64_t ver_seq_max = 0;
+#endif
 
 #if defined(VERS_MM)
 
@@ -28,12 +30,16 @@ ver_mm_alloc(void)
 	#if defined(VERS_MM)
 	if (Ver_mm.vers_nr == 0) {
 		ret = xmalloc(sizeof(*ret));
+		#if defined(VER_VREF)
 		ret->v_seq = ver_seq_max;
+		#endif
 	} else {
 		ret = Ver_mm.vers;
 		Ver_mm.vers = ret->parent;
 		Ver_mm.vers_nr--;
+		#if defined(VER_VREF)
 		ret->v_seq++;
+		#endif
 	}
 	#else // !VERS_MM
 	ret = xmalloc(sizeof(*ret));
