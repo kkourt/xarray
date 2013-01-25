@@ -6,8 +6,11 @@ CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                 = $(CILKDIR)/bin/gcc
 #CC                 = gcc
-INCLUDES           = -I./verp -I./include -I./rle -I./xarray
-CFLAGS             = $(INCLUDES) -Wall -O2 -std=c99 -ggdb3 -D_GNU_SOURCE
+INCLUDES            = -I./verp -I./include -I./rle -I./xarray
+WARNINGS            =  -Wall -Wshadow
+OPTFLAGS            = -O2
+CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE
+CXXFLAGS            = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
 CFLAGS            += -DNDEBUG
 LDFLAGS            =
 
@@ -16,6 +19,7 @@ verp_objs          = verp/verp.o verp/ver.o
 xvarray_objs_sla   = $(verp_objs) $(sla_objs)
 
 CILKCC             = $(CILKDIR)/bin/gcc
+CILKCPP            = $(CILKDIR)/bin/g++
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
 CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
@@ -99,6 +103,18 @@ floorplan/floorplan.o: floorplan/floorplan.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
 
 floorplan/floorplan: floorplan/floorplan.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+floorplan/reducer_test.o: floorplan/reducer_test.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) $< -o $@ -c
+
+floorplan/reducer_test: floorplan/reducer_test.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+floorplan/reducer_test_cpp.o: floorplan/reducer_test_cpp.cpp $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) $< -o $@ -c
+
+floorplan/reducer_test_cpp: floorplan/reducer_test_cpp.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 floorplan/floorplan-serial: floorplan/floorplan-serial.c
