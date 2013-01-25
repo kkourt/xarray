@@ -21,6 +21,8 @@ struct floorplan_stats {
 	tsc_t lay_down;
 	xcnt_t lay_down_ok;
 	xcnt_t lay_down_fail;
+	xcnt_t branch;
+	xcnt_t commit;
 } __attribute__((aligned(64)));
 typedef struct floorplan_stats floorplan_stats_t;
 
@@ -65,6 +67,8 @@ floorplan_stats_do_report(const char *prefix, floorplan_stats_t *st, uint64_t to
 	pr_ticks(lay_down);
 	pr_xcnt(lay_down_ok);
 	pr_xcnt(lay_down_fail);
+	pr_xcnt(branch);
+	pr_xcnt(commit);
 
 	#undef  pr_ticks
 	#undef  pr_cnt
@@ -85,15 +89,15 @@ floorplan_stats_report(unsigned nthreads, uint64_t total_ticks)
 #if defined(FLOORPLAN_STATS)
 	#define FLOORPLAN_TIMER_START(x,i)  do {tsc_start(&FloorPStats[i].x); } while (0)
 	#define FLOORPLAN_TIMER_PAUSE(x,i)  do {tsc_pause(&FloorPStats[i].x);  } while (0)
-	#define FLOORPLAN_INC_COUNTER(x,i)   \
+	#define FLOORPLAN_XCNT_INC(x,i)   \
 		do { xcnt_inc(&(FloorPStats[i].x));     } while (0)
-	#define FLOORPLAN_ADD_COUNTER(x,i,v) \
+	#define FLOORPLAN_XCNT_ADD(x,i,v) \
 		do { xcnt_add(&((FloorPStats[i].x), v));  } while (0)
 #else // !defined(FLOORPLAN_STATS)
 	#define FLOORPLAN_TIMER_START(x,i)   do {;} while (0)
 	#define FLOORPLAN_TIMER_PAUSE(x,i)   do {;} while (0)
-	#define FLOORPLAN_INC_COUNTER(x,i)   do {;} while (0)
-	#define FLOORPLAN_ADD_COUNTER(x,i,v) do {;} while (0)
+	#define FLOORPLAN_XCNT_INC(x,i)   do {;} while (0)
+	#define FLOORPLAN_XCNT_ADD(x,i,v) do {;} while (0)
 #endif // FLOORPLAN_STATS
 
 

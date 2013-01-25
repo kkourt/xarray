@@ -183,7 +183,7 @@ lay_down(int id, ibrd brd, struct cell *cells, int myid)
                 brd[i][j] = (char)id;
             } else {
                 ret = 0;
-                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                FLOORPLAN_XCNT_INC(lay_down_fail, myid);
                 goto end;
             }
         }
@@ -198,7 +198,7 @@ lay_down(int id, ibrd brd, struct cell *cells, int myid)
                 row[j] = (char)id;
             } else {
                 ret = 0;
-                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                FLOORPLAN_XCNT_INC(lay_down_fail, myid);
                 goto end;
             }
         }
@@ -210,7 +210,7 @@ lay_down(int id, ibrd brd, struct cell *cells, int myid)
         for (j=lhs; j <= rhs; j++) {
             if (row[j] != 0) {
                 ret = 0;
-                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                FLOORPLAN_XCNT_INC(lay_down_fail, myid);
                 goto end;
             }
         }
@@ -228,7 +228,7 @@ lay_down(int id, ibrd brd, struct cell *cells, int myid)
     #endif
 
     ret = 1;
-    FLOORPLAN_INC_COUNTER(lay_down_ok, myid);
+    FLOORPLAN_XCNT_INC(lay_down_ok, myid);
 end:
     FLOORPLAN_TIMER_PAUSE(lay_down, myid);
     return ret;
@@ -384,6 +384,7 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
             cells[id].lhs = NWS[j][1];
             cells[id].rhs = cells[id].lhs + cells[id].alt[i][1] - 1;
 
+            FLOORPLAN_XCNT_INC(branch, myid);
             #if defined(FLOORPLAN_XVARRAY)
             FLOORPLAN_TIMER_START(xvarray_branch, myid);
             brd = xvarray_branch(BOARD);
@@ -413,6 +414,7 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
                 destroy = !try_update_min(area, footprint, brd);
             } else if (area < MIN_AREA) {
                 /* if area is less than best area */
+                FLOORPLAN_XCNT_INC(commit, myid);
                 nn2 += add_cell_ser(cells[id].next, footprint, brd, cells);
             } else {
                 /* if area is greater than or equal to best area, prune search */
@@ -468,7 +470,7 @@ add_cell(int id,
             cells[id].lhs = NWS[j][1];
             cells[id].rhs = cells[id].lhs + cells[id].alt[i][1] - 1;
 
-            //printf("myid=%d tsc=%p cnt=%lu\n", myid, tsc, tsc->cnt);
+            FLOORPLAN_XCNT_INC(branch, myid);
             #if defined(FLOORPLAN_XVARRAY)
             FLOORPLAN_TIMER_START(xvarray_branch, myid);
             brd = xvarray_branch(BOARD);
@@ -491,7 +493,7 @@ add_cell(int id,
                     destroy = !try_update_min(area, footprint, brd);
                     /* if area is minimum, update global values */
                 } else if (area < MIN_AREA) {
-                    //xcnt_inc(commits);
+                    FLOORPLAN_XCNT_INC(commit, myid);
                     int my_nnc;
                     if (level < cutoff_level) {
                         my_nnc = add_cell(cells[id].next, footprint, brd, cells, level + 1);
