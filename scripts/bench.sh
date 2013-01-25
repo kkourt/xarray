@@ -6,7 +6,7 @@ repeats=4
 
 for xarr in "da" "sla"
 do
-	for rles in 100000 500000 1000000
+	for rles in 100000 10000000 #500000 1000000 5000000 10000000
 	do
 		for threads in $(seq $(nproc))
 		do

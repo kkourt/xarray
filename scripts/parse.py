@@ -18,7 +18,7 @@ parse_conf = r'''
 /^Number of threads:(\d+).*$/
 	nthreads = int(_g1)
 
-/^rle_encode_rec: .*ticks \[(\d+)\]$/
+/^rle_encode_rec: .*ticks \[ *(\d+)\]$/
 	ticks = int(_g1)
 
 /^number of rles:(\d+)$/
@@ -37,6 +37,7 @@ def do_parse(fname):
 		("rles", "xarray", "nthreads"),
 		map_fn=lambda lod: StatList((x['ticks'] for x in lod))
 	)
+	#pprint(d)
 	return d
 
 
@@ -45,21 +46,23 @@ def do_plot(d, fname="plot.pdf"):
 	theme.use_color = True
 	theme.get_options()
 	canv = canvas.init(fname=fname, format="pdf")
+
+	ncores = max(d.itervalues().next().itervalues().next().iterkeys())
 	ar  = area.T(
 		x_axis  = axis.X(label="/10{}cores", format="%d"),
-		y_axis  = axis.Y(label="/10{}Mticks", format="%d"),
-		y_range = [0,None],
+		y_axis  = axis.Y(label="/10{}speedup", format="%d"),
+		y_range = [0,ncores],
 		size = (400,200)
 	)
 
 	for rles, rles_d in d.iteritems():
+		base = rles_d['da'][1].avg
 		for xarr, xarr_d in rles_d.iteritems():
 			k = "%5s %5.0f%s" % ((xarr, ) + humanize_nr(rles))
 			x = []
 			for (n, n_d) in xarr_d.iteritems():
-				n_d.setfn(lambda x : x /(1000*1000))
+				n_d.setfn(lambda x : base / x)
 				x.append((n, n_d.avg, n_d.avg_minus, n_d.avg_plus))
-			print x
 			ar.add_plot(line_plot.T(
 				data=x,
 				label=k,
