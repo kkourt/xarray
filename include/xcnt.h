@@ -57,7 +57,7 @@ xcnt_avg(xcnt_t *xcnt)
 }
 
 
-static uint64_t
+static inline uint64_t
 xcnt_max(xcnt_t *xcnt)
 {
 	#if defined(XCNT_MINMAX)
@@ -67,7 +67,7 @@ xcnt_max(xcnt_t *xcnt)
 	#endif
 }
 
-static uint64_t
+static inline uint64_t
 xcnt_min(xcnt_t *xcnt)
 {
 	#if defined(XCNT_MINMAX)
@@ -112,15 +112,20 @@ xcnt_report(const char *prefix, xcnt_t *xcnt)
 {
 	printf("%25s: XCNT total:%7s [%13"PRIu64"]"
 	                   " cnt:%7s [%13"PRIu64"]"
+	                   #if defined(XCNT_MINMAX)
 	                   " min:%7s [%13"PRIu64"]"
 	                   " max:%7s [%13"PRIu64"]"
+	                   #endif
 	                   " avg:%10.2lf\n",
 	         prefix,
 	         xcnt_u64_hstr(xcnt->total), xcnt->total,
 	         xcnt_u64_hstr(xcnt->cnt),   xcnt->cnt,
+	         #if defined(XCNT_MINMAX)
 	         xcnt_u64_hstr(xcnt_min(xcnt)), xcnt_min(xcnt),
 	         xcnt_u64_hstr(xcnt_max(xcnt)), xcnt_max(xcnt),
-	         xcnt_avg(xcnt));
+	         #endif
+	         xcnt_avg(xcnt)
+	         );
 }
 
 #endif

@@ -94,7 +94,7 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 	unsigned int bucket;
 	void *ret;
 
-	FLOORPLAN_TIMER_START(verpmap_get);
+	//FLOORPLAN_TIMER_START(verpmap_get);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain  = verpmap_getchain(vmap, bucket);
 	ret    = VERP_NOTFOUND;
@@ -106,7 +106,7 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 	}
 	verpmap_putchain(vmap, bucket);
 
-	FLOORPLAN_TIMER_PAUSE(verpmap_get);
+	//FLOORPLAN_TIMER_PAUSE(verpmap_get);
 	return ret;
 }
 
@@ -121,7 +121,7 @@ verpmap_remove(struct verp_map *vmap, ver_t *ver)
 	unsigned int bucket;
 	void *ret;
 
-	FLOORPLAN_TIMER_START(verpmap_remove);
+	//FLOORPLAN_TIMER_START(verpmap_remove);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain  = verpmap_getchain(vmap, bucket);
 	ret    = VERP_NOTFOUND;
@@ -141,7 +141,7 @@ verpmap_remove(struct verp_map *vmap, ver_t *ver)
 		free(curr);
 	}
 
-	FLOORPLAN_TIMER_PAUSE(verpmap_remove);
+	//FLOORPLAN_TIMER_PAUSE(verpmap_remove);
 	return ret;
 }
 
@@ -157,7 +157,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	struct verp_hnode **chain, *newn;
 	unsigned int bucket;
 
-	FLOORPLAN_TIMER_START(verpmap_set);
+	//FLOORPLAN_TIMER_START(verpmap_set);
 	newn = xmalloc(sizeof(struct verp_hnode));
 	newn->ver = ver_getref(ver);
 	newn->ptr  = newp;
@@ -167,7 +167,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	newn->next = *chain;
 	*chain     = newn;
 	verpmap_putchain(vmap, bucket);
-	FLOORPLAN_TIMER_PAUSE(verpmap_set);
+	//FLOORPLAN_TIMER_PAUSE(verpmap_set);
 }
 
 
@@ -184,7 +184,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 	unsigned int bucket;
 	void *ret;
 
-	FLOORPLAN_TIMER_START(verpmap_update);
+	//FLOORPLAN_TIMER_START(verpmap_update);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain = verpmap_getchain(vmap, bucket);
 	// check if version already exists
@@ -207,7 +207,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 
 end:
 	verpmap_putchain(vmap, bucket);
-	FLOORPLAN_TIMER_PAUSE(verpmap_update);
+	//FLOORPLAN_TIMER_PAUSE(verpmap_update);
 	return ret;
 }
 
@@ -216,7 +216,7 @@ verpmap_reset(struct verp_map *vmap)
 {
 	struct verp_hnode **chain, *curr;
 
-	FLOORPLAN_TIMER_START(verpmap_reset);
+	//FLOORPLAN_TIMER_START(verpmap_reset);
 	for (unsigned i=0; i<VERP_HTABLE_SIZE; i++) {
 		chain = verpmap_getchain(vmap, i);
 		for (curr = *chain; curr; curr = curr->next)
@@ -224,7 +224,7 @@ verpmap_reset(struct verp_map *vmap)
 		*chain = NULL;
 		verpmap_putchain(vmap, i);
 	}
-	FLOORPLAN_TIMER_PAUSE(verpmap_reset);
+	//FLOORPLAN_TIMER_PAUSE(verpmap_reset);
 }
 
 

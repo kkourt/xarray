@@ -27,6 +27,7 @@ struct floorplan_stats {
 	xcnt_t lay_down_fail;
 	xcnt_t branch;
 	xcnt_t commit;
+	xcnt_t chunks;
 } __attribute__((aligned(64)));
 typedef struct floorplan_stats floorplan_stats_t;
 
@@ -98,6 +99,7 @@ floorplan_stats_do_report(const char *prefix, floorplan_stats_t *st, uint64_t to
 	pr_xcnt(lay_down_fail);
 	pr_xcnt(branch);
 	pr_xcnt(commit);
+	pr_xcnt(chunks);
 
 	#undef  pr_ticks
 	#undef  pr_cnt

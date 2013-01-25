@@ -209,6 +209,7 @@ lay_down(int id, ibrd brd, struct cell *cells)
     size_t nrows = bot - top + 1;
     xvchunk_t chunks[nrows];
 
+    FLOORPLAN_XCNT_ADD(chunks, nrows);
     xvchunk_init(brd, chunks + 0, top*COLS);
     assert(chunks[0].off == 0);
     for (i=0; ;) {
