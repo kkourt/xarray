@@ -10,13 +10,16 @@
 #error "Don't include this file directly, use verp.h"
 #endif
 
+// ugly hack
+#include"floorplan_stats.h"
+
 /*
  * low-level version-to-pointer mapping
  *   (uses simple hash table)
  */
 
 // use static size for now
-#define VERP_HTABLE_BITS  8
+#define VERP_HTABLE_BITS  15
 #define VERP_HTABLE_SIZE  (1UL<<VERP_HTABLE_BITS)
 
 struct verp_hnode {
@@ -31,12 +34,12 @@ struct verp_hlock {
 
 /**
  * @htable: table with buckets
- * @hlocks: one lock per table
+ * @hmeta:  metadata for each table (locks, etc)
  *   We use statically sized htables for now
  */
 struct verp_map {
 	struct verp_hnode *htable[VERP_HTABLE_SIZE];
-	struct verp_hlock  hlocks[VERP_HTABLE_SIZE];
+	struct verp_hlock  hmeta[VERP_HTABLE_SIZE];
 	#if 0
 	unsigned       hsize;
 	unsigned       hbits;
@@ -48,21 +51,21 @@ verp_map_init(struct verp_map *vmap)
 {
 	for (size_t i=0; i < VERP_HTABLE_SIZE; i++) {
 		vmap->htable[i] = NULL;
-		spinlock_init(&vmap->hlocks[i]._lock);
+		spinlock_init(&vmap->hmeta[i]._lock);
 	}
 }
 
 static inline struct verp_hnode **
 verpmap_getchain(struct verp_map *vmap, unsigned int bucket)
 {
-	spin_lock(&vmap->hlocks[bucket]._lock);
+	spin_lock(&vmap->hmeta[bucket]._lock);
 	return &vmap->htable[bucket];
 }
 
 static inline void
 verpmap_putchain(struct verp_map *vmap, unsigned int bucket)
 {
-	spin_unlock(&vmap->hlocks[bucket]._lock);
+	spin_unlock(&vmap->hmeta[bucket]._lock);
 }
 
 static inline void
@@ -91,6 +94,7 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 	unsigned int bucket;
 	void *ret;
 
+	FLOORPLAN_TIMER_START(verpmap_get);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain  = verpmap_getchain(vmap, bucket);
 	ret    = VERP_NOTFOUND;
@@ -101,6 +105,8 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 		}
 	}
 	verpmap_putchain(vmap, bucket);
+
+	FLOORPLAN_TIMER_PAUSE(verpmap_get);
 	return ret;
 }
 
@@ -115,6 +121,7 @@ verpmap_remove(struct verp_map *vmap, ver_t *ver)
 	unsigned int bucket;
 	void *ret;
 
+	FLOORPLAN_TIMER_START(verpmap_remove);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain  = verpmap_getchain(vmap, bucket);
 	ret    = VERP_NOTFOUND;
@@ -134,6 +141,7 @@ verpmap_remove(struct verp_map *vmap, ver_t *ver)
 		free(curr);
 	}
 
+	FLOORPLAN_TIMER_PAUSE(verpmap_remove);
 	return ret;
 }
 
@@ -149,6 +157,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	struct verp_hnode **chain, *newn;
 	unsigned int bucket;
 
+	FLOORPLAN_TIMER_START(verpmap_set);
 	newn = xmalloc(sizeof(struct verp_hnode));
 	newn->ver = ver_getref(ver);
 	newn->ptr  = newp;
@@ -158,6 +167,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	newn->next = *chain;
 	*chain     = newn;
 	verpmap_putchain(vmap, bucket);
+	FLOORPLAN_TIMER_PAUSE(verpmap_set);
 }
 
 
@@ -174,6 +184,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 	unsigned int bucket;
 	void *ret;
 
+	FLOORPLAN_TIMER_START(verpmap_update);
 	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
 	chain = verpmap_getchain(vmap, bucket);
 	// check if version already exists
@@ -196,6 +207,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 
 end:
 	verpmap_putchain(vmap, bucket);
+	FLOORPLAN_TIMER_PAUSE(verpmap_update);
 	return ret;
 }
 
@@ -204,6 +216,7 @@ verpmap_reset(struct verp_map *vmap)
 {
 	struct verp_hnode **chain, *curr;
 
+	FLOORPLAN_TIMER_START(verpmap_reset);
 	for (unsigned i=0; i<VERP_HTABLE_SIZE; i++) {
 		chain = verpmap_getchain(vmap, i);
 		for (curr = *chain; curr; curr = curr->next)
@@ -211,6 +224,7 @@ verpmap_reset(struct verp_map *vmap)
 		*chain = NULL;
 		verpmap_putchain(vmap, i);
 	}
+	FLOORPLAN_TIMER_PAUSE(verpmap_reset);
 }
 
 

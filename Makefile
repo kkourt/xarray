@@ -7,7 +7,7 @@ CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                 = $(CILKDIR)/bin/gcc
 #CC                 = gcc
-INCLUDES            = -I./verp -I./include -I./rle -I./xarray
+INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow
 OPTFLAGS            = -O2
 CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE
@@ -48,8 +48,10 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      floorplan/floorplan-serial floorplan/floorplan \
-     floorplan/floorplan_sla                        \
-     xarray/xvarray-tests/branch_sla
+     floorplan/floorplan_sla
+
+     #xarray/xvarray-tests/branch_sla
+
 
 ## xarray
 

@@ -126,18 +126,46 @@ xvarray_branch(xvarray_t *xvarr)
 	return ret;
 }
 
-static inline xelem_t const *
-xvarray_getchunk_rd(xvarray_t *xvarr, long idx, size_t *nelems)
+struct xvchunk {
+	xvarray_t  *xvarr;
+	sla_node_t *node;
+	size_t     off;
+};
+
+static inline void
+xvchunk_init(xvarray_t *xvarr, xvchunk_t *xvchunk, long idx)
 {
 	sla_node_t *node;
-	size_t chunk_off;
-	size_t elem_size;
-	void *data;
+	size_t chunk_off, elem_size;
 
 	elem_size = xvarr->xarr->elem_size;
 	idx       = xarr_idx(xvarr->xarr, idx);
 	node      = sla_find(&xvarr->xarr->sla, idx*elem_size, &chunk_off);
-	data      = vp_ptr(node->chunk, xvarr->xv_ver);
+
+	xvchunk->xvarr = xvarr;
+	xvchunk->node  = node;
+	xvchunk->off   = chunk_off;
+}
+
+static inline void
+xvchunk_getnext(xvchunk_t const *prev, xvchunk_t *next)
+{
+	next->xvarr = prev->xvarr;
+	next->node  = SLA_NODE_NEXT(prev->node, 0);
+	next->off   = 0;
+}
+
+static inline xelem_t const *
+xvchunk_getrd(xvchunk_t *xvch, size_t *nelems)
+{
+	void *data;
+	sla_node_t *node;
+	size_t elem_size, chunk_off;
+
+	node = xvch->node;
+	data = vp_ptr(node->chunk, xvch->xvarr->xv_ver);
+	elem_size = xvch->xvarr->xarr->elem_size;
+	chunk_off = xvch->off;
 
 	if (nelems) {
 		size_t chunk_len = node->chunk_size - chunk_off;
@@ -148,26 +176,20 @@ xvarray_getchunk_rd(xvarray_t *xvarr, long idx, size_t *nelems)
 	return (xelem_t const *)((char *)data + chunk_off);
 }
 
-
-// you can't change this pointer
-static inline xelem_t const *
-xvarray_get_rd(xvarray_t *xvarr, long idx)
-{
-	return xvarray_getchunk_rd(xvarr, idx, NULL);
-}
-
 static inline xelem_t *
-xvarray_getchunk_rdwr(xvarray_t *xvarr, long idx, size_t *nelems)
+xvchunk_getrdwr(xvchunk_t *xvch, size_t *nelems)
 {
+	xvarray_t *xvarr;
 	sla_node_t *node;
-	size_t chunk_off, elem_size;
 	void *vp, *chunk;
 	verp_t *verp;
+	size_t elem_size, chunk_off;
 
+	xvarr     = xvch->xvarr;
 	elem_size = xvarr->xarr->elem_size;
-	idx       = xarr_idx(xvarr->xarr, idx);
-	node      = sla_find(&xvarr->xarr->sla, idx*elem_size, &chunk_off);
+	node      = xvch->node;
 	vp        = node->chunk;
+	chunk_off = xvch->off;
 
 	if (vp_is_normal_ptr(vp)) {
 		chunk = vp;
@@ -211,6 +233,30 @@ end:
 	}
 
 	return (xelem_t *)((char *)chunk + chunk_off);
+}
+
+static inline xelem_t const *
+xvarray_getchunk_rd(xvarray_t *xvarr, long idx, size_t *nelems)
+{
+	xvchunk_t xvchunk;
+	xvchunk_init(xvarr, &xvchunk, idx);
+	return xvchunk_getrd(&xvchunk, nelems);
+}
+
+
+// you can't change this pointer
+static inline xelem_t const *
+xvarray_get_rd(xvarray_t *xvarr, long idx)
+{
+	return xvarray_getchunk_rd(xvarr, idx, NULL);
+}
+
+static inline xelem_t *
+xvarray_getchunk_rdwr(xvarray_t *xvarr, long idx, size_t *nelems)
+{
+	xvchunk_t xvchunk;
+	xvchunk_init(xvarr, &xvchunk, idx);
+	return xvchunk_getrdwr(&xvchunk, nelems);
 }
 
 // you can change this pointer

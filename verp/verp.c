@@ -8,6 +8,9 @@
 #include "hash.h"
 #include "misc.h"
 
+// ugly hack
+#include "floorplan_stats.h"
+
 // Cache for verp objects
 static __thread struct {
 	struct verp    *verp_list;
@@ -66,19 +69,22 @@ void *
 verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found)
 {
 	ver_t *v = ver;
-	void *ptr;
+	void *ptr, *ret;
 	//printf("\t  Searching for ptr=%p ver=%p\n", verp, ver);
+	ret = VERP_NOTFOUND;
+	FLOORPLAN_TIMER_START(tmp_tsc);
 	while (v != NULL) {
 		ptr = verpmap_get(&verp->vpmap, v);
 		if (ptr != VERP_NOTFOUND) {
 			if (ver_found)
 				*ver_found = v;
-			return ptr;
+			ret = ptr;
+			break;
 		}
 		v = v->parent;
 	}
-
-	return VERP_NOTFOUND;
+	FLOORPLAN_TIMER_PAUSE(tmp_tsc);
+	return ret;
 }
 
 /* add a new version to the versioned pointer */

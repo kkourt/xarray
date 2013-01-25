@@ -6,6 +6,9 @@
 struct xvarray;
 typedef struct xvarray xvarray_t;
 
+struct xvchunk;
+typedef struct xvchunk xvchunk_t;
+
 xvarray_t *
 xvarray_create(xarray_t *xarr);
 
