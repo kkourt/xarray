@@ -63,7 +63,7 @@ int main(int argc, const char *argv[])
 		}
 	}
 
-	const int inserts = 32;
+	const int inserts = 8;
 	unsigned seed = time(NULL);
 	printf("initial seed = %u\n", seed);
 	for (unsigned i=0; i<inserts; i++) {
@@ -78,6 +78,12 @@ int main(int argc, const char *argv[])
 		buff2[idx] = c;
 		do_test();
 	}
+
+	printf("1\n"); xvarray_print_vps(xv1);
+	xvarray_destroy(xv2);
+	printf("2\n"); xvarray_print_vps(xv1);
+
+	xvarray_destroy(xv1);
 
 	return 0;
 }

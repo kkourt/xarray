@@ -16,7 +16,7 @@
  */
 
 // use static size for now
-#define VERP_HTABLE_BITS  4
+#define VERP_HTABLE_BITS  8
 #define VERP_HTABLE_SIZE  (1UL<<VERP_HTABLE_BITS)
 
 struct verp_hnode {
@@ -101,6 +101,39 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 		}
 	}
 	verpmap_putchain(vmap, bucket);
+	return ret;
+}
+
+/**
+ * remove a mapping.
+ *  return VERP_NOTFOUND if it does not exist, or the mapping
+ */
+static inline void *
+verpmap_remove(struct verp_map *vmap, ver_t *ver)
+{
+	struct verp_hnode **chain, *curr;
+	unsigned int bucket;
+	void *ret;
+
+	bucket = hash_ptr(ver, VERP_HTABLE_BITS);
+	chain  = verpmap_getchain(vmap, bucket);
+	ret    = VERP_NOTFOUND;
+	while ( (curr = *chain) != NULL) {
+		if (ver_eq(curr->ver, ver)) {
+			*chain = curr->next;
+			break;
+		}
+
+		chain = &curr->next;
+	}
+	verpmap_putchain(vmap, bucket);
+
+	if (curr) {
+		ret = curr->ptr;
+		ver_putref(curr->ver);
+		free(curr);
+	}
+
 	return ret;
 }
 

@@ -30,21 +30,25 @@
 #else
 #include <cilk/cilk.h>
 #include <cilk/cilk_api.h>
+//#include <cilk/reducer_min.h>
+#include <cilk/reducer_opadd.h>
 #define YES_CILK
+#endif
+
+#if defined(FLOORPLAN_XVARRAY)
+#include "xarray.h"
+#include "xvarray.h"
 #endif
 
 #include "misc.h"
 #include "tsc.h"
 #include "xcnt.h"
 
-static struct {
-    tsc_t    memcpy_cells;
-    tsc_t    memcpy_board;
-    tsc_t    memcpy_min;
-    xcnt_t   branches;
-    xcnt_t   commits;
-} xstats[32];
+#include "floorplan_stats.h"
 
+DECLARE_FLOORPLAN_STATS
+
+int cutoff_level = 5;
 
 // lock to replace OMP critical sections
 spinlock_t xlock;
@@ -55,13 +59,24 @@ spinlock_t xlock;
 #define max(a, b) ((a > b) ? a : b)
 #define min(a, b) ((a < b) ? a : b)
 
+#if defined(FLOORPLAN_XVARRAY)
+#define SLA_P             0.5
+#define SLA_MAX_LEVEL     5
+#define XARR_CHUNK_SIZE   COLS // to simplify things, we keep a chunk per row
+#endif
+
 int solution = -1;
 
 typedef int  coor[2];
-typedef char ibrd[ROWS][COLS];
 typedef char (*pibrd)[COLS];
 
-FILE * inputFile;
+typedef char board_elem_t;
+#if !defined(FLOORPLAN_XVARRAY)
+typedef board_elem_t ibrd[ROWS][COLS];
+#else
+typedef xvarray_t *ibrd;
+#endif
+
 
 struct cell {
   int   n;    /* number of alternative orientations (INPUT) */
@@ -76,6 +91,8 @@ struct cell {
 };
 
 struct cell * gcells;
+
+//CILK_C_REDUCER_MIN_TYPE(int) min_area;
 
 int  MIN_AREA;
 ibrd BEST_BOARD;
@@ -146,21 +163,75 @@ static int starts(int id, int shape, coor *NWS, struct cell *cells) {
    by the cells top, bottom, left, and right edges. If the cell can
    not be layed down, return 0; else 1.
 */
-static int lay_down(int id, ibrd board, struct cell *cells) {
-  int  i, j, top, bot, lhs, rhs;
+static int
+lay_down(int id, ibrd brd, struct cell *cells, int myid)
+{
 
-  top = cells[id].top;
-  bot = cells[id].bot;
-  lhs = cells[id].lhs;
-  rhs = cells[id].rhs;
+    int  i, j, top, bot, lhs, rhs, ret;
 
-  for (i = top; i <= bot; i++) {
-  for (j = lhs; j <= rhs; j++) {
-      if (board[i][j] == 0) board[i][j] = (char)id;
-      else                  return(0);
-  } }
+    FLOORPLAN_TIMER_START(lay_down, myid);
 
-  return (1);
+    top = cells[id].top;
+    bot = cells[id].bot;
+    lhs = cells[id].lhs;
+    rhs = cells[id].rhs;
+
+    #if !defined(FLOORPLAN_XVARRAY)
+    for (i = top; i <= bot; i++) {
+        for (j = lhs; j <= rhs; j++) {
+            if (brd[i][j] == 0) {
+                brd[i][j] = (char)id;
+            } else {
+                ret = 0;
+                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                goto end;
+            }
+        }
+    }
+    #elif XARR_CHUNK_SIZE == COLS
+    #if 0
+    for (i = top; i <= bot; i++) {
+        size_t idx = i*COLS, nelems;
+        char *row = xvarray_getchunk_rdwr(brd, idx, &nelems);
+        for (j=lhs; j <= rhs; j++) {
+            if (row[j] == 0) {
+                row[j] = (char)id;
+            } else {
+                ret = 0;
+                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                goto end;
+            }
+        }
+    }
+    #else
+    for (i = top; i <= bot; i++) {
+        size_t idx = i*COLS, nelems;
+        const char *row = xvarray_getchunk_rd(brd, idx, &nelems);
+        for (j=lhs; j <= rhs; j++) {
+            if (row[j] != 0) {
+                ret = 0;
+                FLOORPLAN_INC_COUNTER(lay_down_fail, myid);
+                goto end;
+            }
+        }
+    }
+    for (i = top; i <= bot; i++) {
+        size_t idx = i*COLS, nelems;
+        char *row = xvarray_getchunk_rdwr(brd, idx, &nelems);
+        for (j=lhs; j <= rhs; j++) {
+                row[j] = (char)id;
+        }
+    }
+    #endif
+    #else
+    #error "NYI"
+    #endif
+
+    ret = 1;
+    FLOORPLAN_INC_COUNTER(lay_down_ok, myid);
+end:
+    FLOORPLAN_TIMER_PAUSE(lay_down, myid);
+    return ret;
 }
 
 
@@ -182,7 +253,7 @@ static int lay_down(int id, ibrd board, struct cell *cells) {
  *
  * Note that there is a dummy cell in location 0
  */
-static void read_inputs() {
+static void read_inputs(FILE *inputFile) {
   int i, j, n;
 
   read_integer(inputFile,n);
@@ -230,23 +301,71 @@ static void write_outputs() {
 
     printf("Minimum area = %d\n\n", MIN_AREA);
 
+    #if !defined(FLOORPLAN_XVARRAY)
     for (i = 0; i < MIN_FOOTPRINT[0]; i++) {
-      for (j = 0; j < MIN_FOOTPRINT[1]; j++) {
-          if (BEST_BOARD[i][j] == 0) {printf(" ");}
-          else                       printf("%c", 'A' + BEST_BOARD[i][j] - 1);
+        for (j = 0; j < MIN_FOOTPRINT[1]; j++) {
+            if (BEST_BOARD[i][j] == 0)
+                printf(" ");
+            else
+                printf("%c", 'A' + BEST_BOARD[i][j] - 1);
       }
       printf("\n");
     }
+    #elif XARR_CHUNK_SIZE == COLS
+    for (i = 0; i <= MIN_FOOTPRINT[0]; i++) {
+        size_t idx = i*COLS, nelems;
+        const char *row = xvarray_getchunk_rd(BEST_BOARD, idx, &nelems);
+        for (j=0; j <= MIN_FOOTPRINT[1]; j++) {
+            if (row[j] == 0)
+                printf(" ");
+            else
+                printf("%c", 'A' + row[j] - 1);
+        }
+        printf("\n");
+    }
+    #else
+    #error "NYI"
+    #endif
 }
 
-static int __attribute__((unused))
+static bool
+try_update_min(int area, coor footprint, ibrd board)
+{
+    bool updated;
+
+    updated = false;
+    if (area < MIN_AREA) {
+        spin_lock(&xlock);
+        if (area < MIN_AREA) {
+            updated          = true;
+            MIN_AREA         = area;
+            MIN_FOOTPRINT[0] = footprint[0];
+            MIN_FOOTPRINT[1] = footprint[1];
+            #if defined(FLOORPLAN_XVARRAY)
+            xvarray_t *old = BEST_BOARD;
+            BEST_BOARD = board;
+            if (old)
+                xvarray_destroy(old);
+            #else
+            memcpy(BEST_BOARD, board, sizeof(ibrd));
+            #endif
+            dmsg("N  %d\n", MIN_AREA);
+        }
+        spin_unlock(&xlock);
+    }
+    return updated;
+}
+
+static unsigned __attribute__((unused))
 add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
 {
   int  i, j; // loop variables
   int nn, nn2, area;
 
-  ibrd board;
+  ibrd brd;
   coor footprint, NWS[DMAX];
+
+  int __attribute__((unused)) myid = __cilkrts_get_worker_number();
 
   nn2 = 0;
 
@@ -258,18 +377,27 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
         /* for all possible locations */
         for (j = 0; j < nn; j++) {
             struct cell *cells = CELLS;
+            bool __attribute__((unused)) destroy = true;
             /* extent of shape */
             cells[id].top = NWS[j][0];
             cells[id].bot = cells[id].top + cells[id].alt[i][0] - 1;
             cells[id].lhs = NWS[j][1];
             cells[id].rhs = cells[id].lhs + cells[id].alt[i][1] - 1;
-            //tsc_start(&memcpy_tsc);
-            memcpy(board, BOARD, sizeof(ibrd));
-            //tsc_pause(&memcpy_tsc);
+
+            #if defined(FLOORPLAN_XVARRAY)
+            FLOORPLAN_TIMER_START(xvarray_branch, myid);
+            brd = xvarray_branch(BOARD);
+            FLOORPLAN_TIMER_PAUSE(xvarray_branch, myid);
+            #else
+            memcpy(brd, BOARD, sizeof(ibrd));
+            #endif
 
             /* if the cell cannot be layed down, prune search */
-            if (!lay_down(id, board, cells)) {
+            if (!lay_down(id, brd, cells, myid)) {
                 dmsg("Chip %d, shape %d does not fit\n", id, i);
+                #if defined(FLOORPLAN_XVARRAY)
+                xvarray_destroy(brd);
+                #endif
                 continue;
             }
 
@@ -282,41 +410,36 @@ add_cell_ser(int id, coor FOOTPRINT, ibrd BOARD, struct cell *CELLS)
             if (cells[id].next == 0) {
                 /* try  to update globals */
                 /* if area is minimum, update global values */
-                if (area < MIN_AREA) {
-                    spin_lock(&xlock);
-                    if (area < MIN_AREA) {
-                        MIN_AREA         = area;
-                        MIN_FOOTPRINT[0] = footprint[0];
-                        MIN_FOOTPRINT[1] = footprint[1];
-                        //tsc_start(&memcpy_tsc);
-                        memcpy(BEST_BOARD, board, sizeof(ibrd));
-                        //tsc_pause(&memcpy_tsc);
-                        dmsg("N  %d\n", MIN_AREA);
-                    }
-                    spin_unlock(&xlock);
-                }
+                destroy = !try_update_min(area, footprint, brd);
             } else if (area < MIN_AREA) {
                 /* if area is less than best area */
-                nn2 += add_cell_ser(cells[id].next, footprint, board,cells);
+                nn2 += add_cell_ser(cells[id].next, footprint, brd, cells);
             } else {
                 /* if area is greater than or equal to best area, prune search */
                 //dmsg("T  %d, %d\n", area, MIN_AREA);
             }
+
+            #if defined(FLOORPLAN_XVARRAY)
+            if (destroy)
+                xvarray_destroy(brd);
+            #endif
+
         }
     }
     return nn2;
 }
 
-static int
+static unsigned
 add_cell(int id,
          coor footprint_in,
          ibrd BOARD,
          struct cell *cells_in,
          int level)
 {
-    int  i, j, nnc, nnl;
+    int  i, nnc, nnl;
 
     nnc = nnl = 0;
+    //CILK_C_REDUCER_OPADD(nnc__, int, 0);
 
     /* for each possible shape */
     for (i = 0; i < cells_in[id].n; i++) {
@@ -326,24 +449,18 @@ add_cell(int id,
         nn = starts(id, i, NWS, cells_in);
         nnl += nn;
         /* for all possible locations */
-        cilk_for (j = 0; j < nn; j++) { // parallel for
+        cilk_for (int j = 0; j < nn; j++) { // parallel for
             int area;
-            ibrd board;
+            ibrd brd;
             coor footprint;
             struct cell *cells;
+            bool __attribute__((unused)) destroy = true;
 
-            int myid = __cilkrts_get_worker_number();
-            tsc_t  *tsc_cells = &xstats[myid].memcpy_cells;
-            tsc_t  *tsc_board = &xstats[myid].memcpy_board;
-            tsc_t  *tsc_min   = &xstats[myid].memcpy_min;
-            xcnt_t *branches  = &xstats[myid].branches;
-            xcnt_t *commits   = &xstats[myid].commits;
+            int __attribute__((unused)) myid = __cilkrts_get_worker_number();
 
-            xcnt_inc(branches);
-            cells = alloca(sizeof(struct cell)*(N+1));
-            tsc_start(tsc_cells);
+            //xcnt_inc(branches);
+            cells = (struct cell *)alloca(sizeof(struct cell)*(N+1));
             memcpy(cells,cells_in,sizeof(struct cell)*(N+1));
-            tsc_pause(tsc_cells);
 
             /* extent of shape */
             cells[id].top = NWS[j][0];
@@ -352,12 +469,16 @@ add_cell(int id,
             cells[id].rhs = cells[id].lhs + cells[id].alt[i][1] - 1;
 
             //printf("myid=%d tsc=%p cnt=%lu\n", myid, tsc, tsc->cnt);
-            tsc_start(tsc_board);
-            memcpy(board, BOARD, sizeof(ibrd));
-            tsc_pause(tsc_board);
+            #if defined(FLOORPLAN_XVARRAY)
+            FLOORPLAN_TIMER_START(xvarray_branch, myid);
+            brd = xvarray_branch(BOARD);
+            FLOORPLAN_TIMER_PAUSE(xvarray_branch, myid);
+            #else
+            memcpy(brd, BOARD, sizeof(ibrd));
+            #endif
 
             /* if the cell cannot be layed down, prune search */
-            if (! lay_down(id, board, cells)) {
+            if (!lay_down(id, brd, cells, myid)) {
                 dmsg("Chip %d, shape %d does not fit\n", id, i);
             } else {
                 /* calculate new footprint of board and area of footprint */
@@ -367,71 +488,71 @@ add_cell(int id,
 
                 /* if last cell */
                 if (cells[id].next == 0) {
+                    destroy = !try_update_min(area, footprint, brd);
                     /* if area is minimum, update global values */
-                    if (area < MIN_AREA) {
-                        spin_lock(&xlock);
-                        if (area < MIN_AREA) {
-                            MIN_AREA         = area;
-                            MIN_FOOTPRINT[0] = footprint[0];
-                            MIN_FOOTPRINT[1] = footprint[1];
-                            tsc_start(tsc_min);
-                            memcpy(BEST_BOARD, board, sizeof(ibrd));
-                            tsc_pause(tsc_min);
-                            dmsg("N  %d\n", MIN_AREA);
-                        }
-                        spin_unlock(&xlock);
-                    }
                 } else if (area < MIN_AREA) {
-                    #if 0
-                    /* if area is less than best area */
-                    if (level+1 < bots_cutoff_value ) {
-                        #pragma omp atomic
-                        nnc += add_cell(cells[id].next, footprint, board,cells,level+1);
+                    //xcnt_inc(commits);
+                    int my_nnc;
+                    if (level < cutoff_level) {
+                        my_nnc = add_cell(cells[id].next, footprint, brd, cells, level + 1);
                     } else {
-                        #pragma omp atomic
-                        nnc += add_cell_ser(cells[id].next, footprint, board,cells);
+                        my_nnc = add_cell_ser(cells[id].next, footprint, brd, cells);
                     }
-                    #endif
-                    xcnt_inc(commits);
-                    int my_nnc = add_cell(cells[id].next, footprint, board,cells, level + 1);
-                    spin_lock(&xlock); // FIXME
+                    //int my_nnc = add_cell_ser(cells[id].next, footprint, brd,cells);
+
+                    spin_lock(&xlock);
                     nnc += my_nnc;
                     spin_unlock(&xlock);
+
+                    //REDUCER_VIEW(nnc__) += my_nnc;
                 } else {
                     /* if area is greater than or equal to best area, prune search */
                     dmsg("T  %d, %d\n", area, MIN_AREA);
                 }
             }
+
+            #if defined(FLOORPLAN_XVARRAY)
+            if (destroy)
+                xvarray_destroy(brd);
+            #endif
         }
     }
 
+    //printf("%d %d\n", nnc, REDUCER_VIEW(nnc__));
     return nnc+nnl;
 }
 
-ibrd board;
 
-void floorplan_init (const char *filename)
+void floorplan_init (const char *filename, ibrd board)
 {
-    int i,j;
+    FILE *inputFile;
 
     inputFile = fopen(filename, "r");
 
-    if(NULL == inputFile) {
+    if (NULL == inputFile) {
         printf("Couldn't open %s file for reading\n", filename);
         exit(1);
     }
 
     /* read input file and initialize global minimum area */
-    read_inputs();
+    read_inputs(inputFile);
     MIN_AREA = ROWS * COLS;
 
+    #if defined(FLOORPLAN_XVARRAY)
+    // do nothing, initialization has already been performed in
+    // board_xva_alloc()
+    #else
+    int i,j;
     /* initialize board is empty */
     for (i = 0; i < ROWS; i++)
-    for (j = 0; j < COLS; j++) board[i][j] = 0;
+    for (j = 0; j < COLS; j++)
+        board[i][j] = 0;
+    #endif
 
 }
 
-int compute_floorplan (void)
+unsigned
+compute_floorplan(ibrd board)
 {
     int ret;
     coor footprint;
@@ -465,9 +586,38 @@ void floorplan_verify (void)
     } else printf("VERIFIED\n");
 }
 
+#if defined(FLOORPLAN_XVARRAY)
+static ibrd
+board_xva_alloc(void)
+{
+    
+    xarray_t *xarr;
+    xvarray_t *xvarr;
+
+    xarr = xarray_create(&(struct xarray_init) {
+            .elem_size = sizeof(board_elem_t),
+            .da = {
+                    .elems_alloc_grain = XARR_CHUNK_SIZE,
+                    .elems_init = (ROWS*COLS)
+            },
+            .sla = {
+                    .p                =  SLA_P,
+                    .max_level        =  SLA_MAX_LEVEL,
+                    .elems_chunk_size =  XARR_CHUNK_SIZE,
+            }
+    });
+
+    xarray_append_set(xarr, 0, ROWS*COLS);
+    xvarr = xvarray_create(xarr);
+    return xvarr;
+}
+#endif
+
+
 int main(int argc, const char *argv[])
 {
 
+    unsigned nworkers, steps;
     spinlock_init(&xlock);
 
     if (argc < 2) {
@@ -475,28 +625,35 @@ int main(int argc, const char *argv[])
         exit(1);
     }
 
-    floorplan_init(argv[1]);
+    const char *input = argv[1];
+    if (argc > 2) {
+        cutoff_level = atoi(argv[2]);
+    }
+
+    nworkers = __cilkrts_get_nworkers();
+
+    floorplan_stats_create(nworkers);
+
+    ibrd board;
+    #if defined(FLOORPLAN_XVARRAY)
+    // initialize board
+    board = board_xva_alloc();
+    BEST_BOARD = NULL;
+    #endif
+
+    floorplan_init(argv[1], board);
+
     TSC_MEASURE_TICKS(total_ticks, {
-        compute_floorplan();
+        steps = compute_floorplan(board);
     })
 
     floorplan_end();
     floorplan_verify();
 
-    for (unsigned i=0; i<4; i++) {
-        printf("i=%u\n", i);
-        tsc_t *cells = &xstats[i].memcpy_cells;
-        tsc_t *board = &xstats[i].memcpy_board;
-        tsc_t *min   = &xstats[i].memcpy_min;
-        xcnt_t *branches = &xstats[i].branches;
-        xcnt_t *commits  = &xstats[i].commits;
-        tsc_report_perc("cells  ", cells, total_ticks, 1);
-        tsc_report_perc("board  ", board, total_ticks, 1);
-        tsc_report_perc("min  ",   min, total_ticks, 1);
-        xcnt_report("branches ",  branches);
-        xcnt_report("commits ",   commits);
-    }
-
+    printf("nthreads:%u steps:%u input:%s cutoff:%d\n",
+            nworkers, steps, input, cutoff_level);
+    tsc_report_ticks(" TOTAL", total_ticks);
+    floorplan_stats_report(nworkers, total_ticks);
 
     return 0;
 }

@@ -127,29 +127,33 @@ xarray_getlast(xarray_t *xarr)
 static inline xelem_t *
 xarray_get(xarray_t *xarr, long idx)
 {
-	idx = xarr_idx(xarr, idx);
-
 	sla_node_t *node;
-	size_t chunk_off;
-	node = sla_find(&xarr->sla, idx*xarr->elem_size, &chunk_off);
+	size_t elem_size, chunk_off;
+
+	idx = xarr_idx(xarr, idx);
+	elem_size = xarr->elem_size;
+	node = sla_find(&xarr->sla, elem_size, &chunk_off);
 	assert(chunk_off < node->chunk_size);
+
 	return (xelem_t *)((char *)node->chunk + chunk_off);
 }
 
 static inline xelem_t *
 xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_elems)
 {
-	idx = xarr_idx(xarr, idx);
-	size_t elem_size = xarr->elem_size;
-	size_t chunk_off;
-	sla_node_t *n = sla_find(&xarr->sla, idx*elem_size, &chunk_off);
-	assert(chunk_off < n->chunk_size);
+	sla_node_t *node;
+	size_t elem_size, chunk_off;
 
-	size_t chunk_len = n->chunk_size - chunk_off;
+	idx = xarr_idx(xarr, idx);
+	elem_size = xarr->elem_size;
+	node = sla_find(&xarr->sla, idx*elem_size, &chunk_off);
+	assert(chunk_off < node->chunk_size);
+
+	size_t chunk_len = node->chunk_size - chunk_off;
 	assert(chunk_len % elem_size == 0);
 	*chunk_elems = chunk_len / elem_size;
 
-	return (xelem_t *)((char *)n->chunk + chunk_off);
+	return (xelem_t *)((char *)node->chunk + chunk_off);
 }
 
 static inline xelem_t *
@@ -180,7 +184,7 @@ xarray_append_prepare(xarray_t *xarr, size_t *nelems)
 	sla_t *sla = &xarr->sla;
 	size_t elem_size = xarr->elem_size;
 
-	RLE_TIMER_START(sla_append_prepare, rle_getmyid());
+	//RLE_TIMER_START(sla_append_prepare, rle_getmyid());
 
 	if (sla_tailnode_full(sla)) {
 		size_t alloc_grain = xarr->elems_chunk_size*elem_size;
@@ -198,7 +202,7 @@ xarray_append_prepare(xarray_t *xarr, size_t *nelems)
 	assert(chunk_len % elem_size == 0);
 	*nelems = chunk_len / elem_size;
 
-	RLE_TIMER_PAUSE(sla_append_prepare, rle_getmyid());
+	//RLE_TIMER_PAUSE(sla_append_prepare, rle_getmyid());
 
 	return n->chunk + nlen;
 }

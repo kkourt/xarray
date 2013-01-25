@@ -64,6 +64,8 @@ void      xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2);
 static size_t   xarray_size(xarray_t *xarr);
 static size_t   xarray_elem_size(xarray_t *xarr);
 static xelem_t *xarray_get(xarray_t *xarr, long idx);
+// return a pointer to the @idx location of the array and the remaining number
+// of elements @nelems in the contiguous chunk.
 static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *nelems);
 static xelem_t *xarray_append(xarray_t *xarr);
 
@@ -107,6 +109,23 @@ xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
 		memcpy(dst, elems + elems_i, nelems*elem_size);
 		xarray_append_finalize(xarr, nelems);
 		elems_i     += nelems;
+		total_elems -= nelems;
+	}
+}
+
+// append @total_elems, and set to @c
+static inline void
+xarray_append_set(xarray_t *xarr, char c, size_t total_elems)
+{
+	size_t nelems, elem_size;
+	xelem_t *dst;
+
+	elem_size = xarray_elem_size(xarr);
+	while (total_elems > 0) {
+		dst = xarray_append_prepare(xarr, &nelems);
+		nelems = MIN(nelems, total_elems);
+		memset(dst, c, nelems*elem_size);
+		xarray_append_finalize(xarr, nelems);
 		total_elems -= nelems;
 	}
 }

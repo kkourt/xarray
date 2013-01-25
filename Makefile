@@ -3,6 +3,7 @@
 USE_TCMALLOC  = 1
 
 CILKDIR            = /usr/src/other/cilkplus.install
+#CILKDIR            = /usr/src/other/gcc-cilk.git/install
 
 CC                 = $(CILKDIR)/bin/gcc
 #CC                 = gcc
@@ -40,20 +41,22 @@ hdrs  =$(wildcard rle/*.h)
 hdrs +=$(wildcard xarray/*.h)
 hdrs +=$(wildcard include/*.h)
 hdrs +=$(wildcard verp/*.h)
+hdrs +=$(wildcard floorplan/*.h)
 
 all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      floorplan/floorplan-serial floorplan/floorplan \
+     floorplan/floorplan_sla                        \
      xarray/xvarray-tests/branch_sla
 
 ## xarray
 
-xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h
+xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h $(hdrs)
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
-xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h
+xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h $(hdrs)
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
@@ -100,7 +103,7 @@ rle/rle_rec: rle/rle_rec.c
 ## floorplan
 
 floorplan/floorplan.o: floorplan/floorplan.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
+	$(CILKCC) $(CILKCCFLAGS) $< -o $@ -c
 
 floorplan/floorplan: floorplan/floorplan.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
@@ -119,6 +122,12 @@ floorplan/reducer_test_cpp: floorplan/reducer_test_cpp.o
 
 floorplan/floorplan-serial: floorplan/floorplan-serial.c
 	$(CC) $(LDFLAGS) $(CFLAGS) $< -o $@
+
+floorplan/floorplan_sla.o: floorplan/floorplan.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DFLOORPLAN_XVARRAY -DXARRAY_SLA__  $< -o $@ -c
+
+floorplan/floorplan_sla: floorplan/floorplan_sla.o $(sla_objs) $(verp_objs)
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 ## verp
 

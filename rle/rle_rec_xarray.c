@@ -172,7 +172,7 @@ rle_encode(xslice_t *syms)
 	size_t syms_ch_len, rles_ch_len; // chunk sizes
 	size_t rles_ch_idx=0;            // rles chunk size
 
-	void append_rle(char symbol, size_t freq) {
+	void append_rle(char symbol, size_t frq) {
 		if (rles_ch_idx >= rles_ch_len) {
 			assert(rles_ch_idx == rles_ch_len);
 			xarray_append_finalize(rles, rles_ch_idx);
@@ -180,7 +180,7 @@ rle_encode(xslice_t *syms)
 			rles_ch_idx = 0;
 		}
 		rles_ch[rles_ch_idx].symbol = symbol;
-		rles_ch[rles_ch_idx].freq = freq;
+		rles_ch[rles_ch_idx].freq = frq;
 		rles_ch_idx++;
 	}
 

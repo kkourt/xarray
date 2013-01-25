@@ -59,7 +59,7 @@
  *
  */
 
-#define V_LOG_UINTPTRS 8
+#define V_LOG_UINTPTRS 128
 struct ver {
 	struct ver *parent;
 	#ifndef NDEBUG
@@ -227,6 +227,11 @@ ver_create(void)
 	return ret;
 }
 
+static inline int
+ver_refcnt(ver_t *ver)
+{
+	return refcnt_get(&ver->rfcnt);;
+}
 
 /**
  * garbage collect the tree from @ver's parent and above

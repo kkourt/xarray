@@ -10,8 +10,18 @@
 #include "verp.h"
 #include "misc.h"
 
+// verp_log lives in a version and is used to maintain information about what
+// verps have mappings for a particular version. This is aimed to help
+// collecting garbage versions.
+// Q: Do we assume that the log is complete?
+// Q: When do we use the log to remove the versions?
+//   For the versions to be removed, we need to be on a "dead-end" branch --
+//   We separate this case by using ver_destroy instead of ver_release in the
+//   version's decref. The difference is that ver_relase() can be used when we
+//   wan't to GC the versions, but not the mappings in 
+
 // this is common for all xvarray structures. We could embed it into struct sla,
-// I thought it might be better to keep them seperate.
+// but we keep them seperate to be less intrusive.
 struct xvarray_glbl {
 	spinlock_t lock;
 	ver_t      *v_base;
@@ -22,18 +32,6 @@ struct xvarray {
 	ver_t               *xv_ver;
 	struct xvarray_glbl *glbl;
 };
-
-/*
- * ver->v_log is:
- *   v_log[0]:             Number of entries
- *   v_log[1]...v_log[-2]: Entries
- *   v_log[-1]:            ->next pointer (last)
- */
-void
-xvarr_log_init(ver_t *v)
-{
-	v->v_log[0] = 0;
-}
 
 void
 xvarray_init(xvarray_t *xvarr, xarray_t *xarr)
@@ -48,7 +46,18 @@ xvarray_init(xvarray_t *xvarr, xarray_t *xarr)
 	xvarr->glbl->v_base = ver;
 	spinlock_init(&xvarr->glbl->lock);
 
-	xvarr_log_init(ver);
+	verp_log_init(ver);
+}
+
+void
+xvarray_print_vps(xvarray_t *xvarr)
+{
+	sla_node_t *node;
+	unsigned i=0;
+	sla_for_each(&xvarr->xarr->sla, 0, node) {
+		printf("i=%4u\t%p\n", i++, node->chunk);
+		vp_print(node->chunk);
+	}
 }
 
 
@@ -64,13 +73,35 @@ xvarray_create(xarray_t *xarr)
 void
 xvarray_do_destroy(xvarray_t *xvarr)
 {
-	if ( ver_putref(xvarr->xv_ver) == NULL) {
+	ver_t *ver = xvarr->xv_ver;
+
+	// check if there are children
+	if (verp_log_nadds(ver) + 1 == ver_refcnt(ver)) {
+		// no children:
+		// collect versions from mappings based on the log
+		verp_log_gc(ver, sla_chunk_free);
+		assert(ver_refcnt(ver) == 1);
+	} else {
+		assert(verp_log_nadds(ver) + 1 < ver_refcnt(ver));
+	}
+
+	if (ver_putref(xvarr->xv_ver) == NULL) {
 		// TODO: all references are gone
 		// delete ->xarr?
+		// we need to delete _glbl for certain though
 	}
 }
 
-void
+/**
+ * xvarray_destroy() is called when a xvarray is not in use any more. It has to
+ * The function needs to distinguish between two cases:
+ *  - dead-ends are ->xv_vers that their mappings can be collected
+ *  - live versions where we can't remove the mappings, because they are needed
+ * We make this distinction by checking if the version has any children.
+ * Note xvarray_destroy() works better if we make sure that _destroy() is called
+ * first on the child and then on the parent.
+ */
+static inline void
 xvarray_destroy(xvarray_t *xvarr)
 {
 	xvarray_do_destroy(xvarr);
@@ -83,7 +114,7 @@ xvarray_do_branch(xvarray_t *xvarr, xvarray_t *xvarr_parent)
 	xvarr->xarr   = xvarr_parent->xarr;
 	xvarr->glbl   = xvarr_parent->glbl;
 	xvarr->xv_ver = ver_branch(xvarr_parent->xv_ver);
-	xvarr_log_init(xvarr->xv_ver);
+	verp_log_init(xvarr->xv_ver);
 }
 
 xvarray_t *
@@ -95,9 +126,8 @@ xvarray_branch(xvarray_t *xvarr)
 	return ret;
 }
 
-// you can't change this pointer
-xelem_t const *
-xvarray_get_rd(xvarray_t *xvarr, long idx)
+static inline xelem_t const *
+xvarray_getchunk_rd(xvarray_t *xvarr, long idx, size_t *nelems)
 {
 	sla_node_t *node;
 	size_t chunk_off;
@@ -109,12 +139,25 @@ xvarray_get_rd(xvarray_t *xvarr, long idx)
 	node      = sla_find(&xvarr->xarr->sla, idx*elem_size, &chunk_off);
 	data      = vp_ptr(node->chunk, xvarr->xv_ver);
 
-	return (xelem_t *)((char *)data + chunk_off);
+	if (nelems) {
+		size_t chunk_len = node->chunk_size - chunk_off;
+		assert(chunk_len % elem_size == 0);
+		*nelems = chunk_len / elem_size;
+	}
+
+	return (xelem_t const *)((char *)data + chunk_off);
 }
 
-// you can change this pointer
-xelem_t *
-xvarray_get_rdwr(xvarray_t *xvarr, long idx)
+
+// you can't change this pointer
+static inline xelem_t const *
+xvarray_get_rd(xvarray_t *xvarr, long idx)
+{
+	return xvarray_getchunk_rd(xvarr, idx, NULL);
+}
+
+static inline xelem_t *
+xvarray_getchunk_rdwr(xvarray_t *xvarr, long idx, size_t *nelems)
 {
 	sla_node_t *node;
 	size_t chunk_off, elem_size;
@@ -161,7 +204,20 @@ xvarray_get_rdwr(xvarray_t *xvarr, long idx)
 	chunk = dst;
 
 end:
+	if (nelems) {
+		size_t chunk_len = node->chunk_size - chunk_off;
+		assert(chunk_len % elem_size == 0);
+		*nelems = chunk_len / elem_size;
+	}
+
 	return (xelem_t *)((char *)chunk + chunk_off);
+}
+
+// you can change this pointer
+static inline xelem_t *
+xvarray_get_rdwr(xvarray_t *xvarr, long idx)
+{
+	return xvarray_getchunk_rdwr(xvarr, idx, NULL);
 }
 
 #endif /* XARRAY_MV_SLA_H */

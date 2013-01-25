@@ -16,7 +16,7 @@ static __thread struct {
 
 
 void
-verp_init(void)
+verp_mm_init(void)
 {
 
 	// prealloc here
@@ -87,6 +87,7 @@ verp_insert_ptr(verp_t *verp, ver_t *ver, void *newp)
 {
 	assert(newp != VERP_NOTFOUND);
 	assert(verp_find_ptr_exact(verp, ver) == VERP_NOTFOUND);
+	verp_log_add(ver, verp);
 	verpmap_set(&verp->vpmap, ver, newp);
 }
 
@@ -95,8 +96,13 @@ verp_insert_ptr(verp_t *verp, ver_t *ver, void *newp)
 void *
 verp_update_ptr(verp_t *verp, ver_t *ver, void *newp)
 {
+	void *ret;
+
 	assert(newp != VERP_NOTFOUND);
-	return verpmap_update(&verp->vpmap, ver, newp);
+	ret = verpmap_update(&verp->vpmap, ver, newp);
+	if (ret == NULL)
+		verp_log_add(ver, verp);
+	return ret;
 }
 
 void
@@ -123,24 +129,24 @@ vp_ptr(void *vp, ver_t *ver)
 
 /* update the versioned pointer with a new value */
 void
-vp_update(verobj_t *obj, void **vp_ptr, ver_t *ver, void *newp)
+vp_update(verobj_t *obj, void **vp_pointer, ver_t *ver, void *newp)
 {
 	verp_t *verp;
 
-	if (vp_is_normal_ptr(*vp_ptr)) {
+	if (vp_is_normal_ptr(*vp_pointer)) {
 		if (ver == obj->ver_base) {
 			// save version, just update the value
-			obj->ptr_dealloc(*vp_ptr);
-			*vp_ptr = newp;
+			obj->ptr_dealloc(*vp_pointer);
+			*vp_pointer = newp;
 			return;
 		}
 		// we need a new verp
 		verp = verp_alloc();
 		// insert normal pointer as base version
 		// XXX: maybe s/update/inserT?
-		verp_update_ptr(verp, obj->ver_base, *vp_ptr);
+		verp_update_ptr(verp, obj->ver_base, *vp_pointer);
 	} else {
-		verp = vp_unmark_ptr(*vp_ptr);
+		verp = vp_unmark_ptr(*vp_pointer);
 		// garbage collect older versions
 		verp_gc(verp, obj->ver_base);
 	}
@@ -150,7 +156,7 @@ vp_update(verobj_t *obj, void **vp_ptr, ver_t *ver, void *newp)
 	if (old_ptr)
 		obj->ptr_dealloc(old_ptr);
 
-	*vp_ptr = verp_mark_ptr(verp);
+	*vp_pointer = verp_mark_ptr(verp);
 	return;
 }
 
