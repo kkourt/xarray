@@ -214,23 +214,23 @@ tsc_u64_hstr(uint64_t ul)
 	char *b = buffs[i++ % UL_HSTR_NR];
 	#undef UL_HSTR_NR
 
-	char *m;
+	char m;
 	double t;
 	if (ul < 1000) {
-		m = " ";
+		m = ' ';
 		t = (double)ul;
 	} else if (ul < 1000*1000) {
-		m = "K";
+		m = 'K';
 		t = (double)ul/(1000.0);
 	} else if (ul < 1000*1000*1000) {
-		m = "M";
+		m = 'M';
 		t = (double)ul/(1000.0*1000.0);
 	} else {
-		m = "G";
+		m = 'G';
 		t = (double)ul/(1000.0*1000.0*1000.0);
 	}
 
-	snprintf(b, 16, "%5.1lf%s", t, m);
+	snprintf(b, 16, "%5.1lf%c", t, m);
 	return b;
 
 }
@@ -272,15 +272,22 @@ tsc_report_perc(const char *prefix, tsc_t *tsc, uint64_t total_ticks,
 	              " (%5.1lf%%)"
 	              " cnt:%7s [%13"PRIu64"]"
 	              " avg:%7s [%16.2lf]"
+	              #if defined(TSC_MINMAX)
 	              " max:%7s [%13"PRIu64"]"
-	              " min:%7s [%13"PRIu64"]\n",
+	              " min:%7s [%13"PRIu64"]"
+	              #endif
+	              "\n",
 	         prefix,
 	         tsc_u64_hstr(ticks),                  ticks,
 	         ((double)ticks*100.0)/(double)total_ticks,
 	         tsc_u64_hstr(tsc_cnt(tsc)),           tsc_cnt(tsc),
-	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc),
+	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc)
+	         #if defined(TSC_MINMAX)
+	         ,
 	         tsc_u64_hstr(tsc_max(tsc)),           tsc_max(tsc),
-	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc));
+	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc)
+	         #endif
+	         );
 }
 
 static inline void tsc_report_old(char *prefix, tsc_t *tsc)

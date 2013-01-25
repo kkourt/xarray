@@ -112,26 +112,31 @@ ul_hstr(unsigned long ul)
 	char *b = buffs[i++ % UL_HSTR_NR];
 	#undef UL_HSTR_NR
 
-	char *m;
+	char m;
 	double t;
 	if (ul < 1000) {
-		m = " ";
+		m = ' ';
 		t = (double)ul;
 	} else if (ul < 1000*1000) {
-		m = "K";
+		m = 'K';
 		t = (double)ul/(1000.0);
 	} else if (ul < 1000*1000*1000) {
-		m = "M";
+		m = 'M';
 		t = (double)ul/(1000.0*1000.0);
 	} else {
-		m = "G";
+		m = 'G';
 		t = (double)ul/(1000.0*1000.0*1000.0);
 	}
 
-	snprintf(b, 16, "%5.1lf%s", t, m);
+	snprintf(b, 16, "%5.1lf%c", t, m);
 	return b;
 
 }
+
+#define NYI() do { \
+	fprintf(stderr, "%s:%s(): NYI\n", __FILE__, __FUNCTION__); \
+	abort(); \
+} while (0)
 
 #define	likely(x)	__builtin_expect((x),1)
 #define unlikely(x)	__builtin_expect((x),0)
