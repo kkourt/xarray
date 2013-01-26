@@ -5,6 +5,7 @@
 #include "verp.h"
 #include "hash.h"
 #include "misc.h"
+#include "processor.h"
 
 #if !defined(VERP_H)
 #error "Don't include this file directly, use verp.h"
@@ -28,7 +29,7 @@ struct verp_hnode {
 	struct verp_hnode *next;
 } __attribute__ ((aligned(CACHELINE_BYTES)));
 
-struct verp_hlock {
+struct verp_hmeta {
 	spinlock_t _lock;
 }  __attribute__ (( aligned(CACHELINE_BYTES) ));
 
@@ -39,12 +40,19 @@ struct verp_hlock {
  */
 struct verp_map {
 	struct verp_hnode *htable[VERP_HTABLE_SIZE];
-	struct verp_hlock  hmeta[VERP_HTABLE_SIZE];
+	struct verp_hmeta  hmeta[VERP_HTABLE_SIZE];
 	#if 0
 	unsigned       hsize;
 	unsigned       hbits;
 	#endif
+	atomic_t           nmaps;
 };
+
+static inline uint32_t
+verpmap_size(struct verp_map *vmap)
+{
+	return atomic_read(&vmap->nmaps);
+}
 
 static inline void
 verp_map_init(struct verp_map *vmap)
@@ -53,6 +61,7 @@ verp_map_init(struct verp_map *vmap)
 		vmap->htable[i] = NULL;
 		spinlock_init(&vmap->hmeta[i]._lock);
 	}
+	atomic_set(&vmap->nmaps, 0);
 }
 
 static inline struct verp_hnode **
@@ -106,6 +115,7 @@ verpmap_get(struct verp_map *vmap, ver_t *ver)
 	}
 	verpmap_putchain(vmap, bucket);
 
+	//FLOORPLAN_XCNT_ADD(verpmap_get_iters, cnt);
 	//FLOORPLAN_TIMER_PAUSE(verpmap_get);
 	return ret;
 }
@@ -128,6 +138,7 @@ verpmap_remove(struct verp_map *vmap, ver_t *ver)
 	while ( (curr = *chain) != NULL) {
 		if (ver_eq(curr->ver, ver)) {
 			*chain = curr->next;
+			atomic_dec(&vmap->nmaps);
 			break;
 		}
 
@@ -166,6 +177,7 @@ verpmap_set(struct verp_map *vmap, ver_t *ver, void *newp)
 	chain = verpmap_getchain(vmap, bucket);
 	newn->next = *chain;
 	*chain     = newn;
+	atomic_inc(&vmap->nmaps);
 	verpmap_putchain(vmap, bucket);
 	//FLOORPLAN_TIMER_PAUSE(verpmap_set);
 }
@@ -201,6 +213,7 @@ verpmap_update(struct verp_map *vmap, ver_t *ver, void *newp)
 	newn = xmalloc(sizeof(struct verp_hnode));
 	newn->ver = ver_getref(ver);
 	newn->ptr = newp;
+	atomic_inc(&vmap->nmaps);
 
 	newn->next = *chain;
 	*chain     =  newn;
@@ -222,6 +235,7 @@ verpmap_reset(struct verp_map *vmap)
 		for (curr = *chain; curr; curr = curr->next)
 			ver_putref(curr->ver);
 		*chain = NULL;
+		atomic_set(&vmap->nmaps, 0);
 		verpmap_putchain(vmap, i);
 	}
 	//FLOORPLAN_TIMER_PAUSE(verpmap_reset);

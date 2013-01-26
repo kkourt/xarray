@@ -22,12 +22,16 @@ struct floorplan_stats {
 	tsc_t verpmap_remove;
 	tsc_t verpmap_update;
 	tsc_t verpmap_reset;
+	tsc_t verp_find_ptr;
 	tsc_t tmp_tsc;
 	xcnt_t lay_down_ok;
 	xcnt_t lay_down_fail;
 	xcnt_t branch;
 	xcnt_t commit;
 	xcnt_t chunks;
+	xcnt_t verpmap_get_iters;
+	xcnt_t verp_find_ptr_iters;
+	xcnt_t verpmap_size;
 } __attribute__((aligned(64)));
 typedef struct floorplan_stats floorplan_stats_t;
 
@@ -95,11 +99,15 @@ floorplan_stats_do_report(const char *prefix, floorplan_stats_t *st, uint64_t to
 	pr_ticks(verpmap_remove);
 	pr_ticks(verpmap_update);
 	pr_ticks(verpmap_reset);
+	pr_ticks(verp_find_ptr);
 	pr_xcnt(lay_down_ok);
 	pr_xcnt(lay_down_fail);
 	pr_xcnt(branch);
 	pr_xcnt(commit);
 	pr_xcnt(chunks);
+	pr_xcnt(verpmap_get_iters);
+	pr_xcnt(verpmap_size);
+	pr_xcnt(verp_find_ptr_iters);
 
 	#undef  pr_ticks
 	#undef  pr_cnt

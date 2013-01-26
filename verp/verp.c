@@ -72,7 +72,8 @@ verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found)
 	void *ptr, *ret;
 	//printf("\t  Searching for ptr=%p ver=%p\n", verp, ver);
 	ret = VERP_NOTFOUND;
-	FLOORPLAN_TIMER_START(tmp_tsc);
+	FLOORPLAN_TIMER_START(verp_find_ptr);
+	size_t cnt = 0;
 	while (v != NULL) {
 		ptr = verpmap_get(&verp->vpmap, v);
 		if (ptr != VERP_NOTFOUND) {
@@ -82,8 +83,11 @@ verp_find_ptr(verp_t *verp, ver_t *ver, ver_t **ver_found)
 			break;
 		}
 		v = v->parent;
+		cnt++;
 	}
-	FLOORPLAN_TIMER_PAUSE(tmp_tsc);
+	FLOORPLAN_XCNT_ADD(verp_find_ptr_iters, cnt);
+	FLOORPLAN_XCNT_ADD(verpmap_size, verpmap_size(&verp->vpmap));
+	FLOORPLAN_TIMER_PAUSE(verp_find_ptr);
 	return ret;
 }
 

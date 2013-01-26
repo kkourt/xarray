@@ -5,7 +5,7 @@
 
 #include <inttypes.h>
 
-//#define XCNT_MINMAX
+#define XCNT_MINMAX
 
 struct xcnt {
 	uint64_t total; // total value of counter
