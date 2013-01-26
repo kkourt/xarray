@@ -55,7 +55,7 @@ rle_print(xarray_t *rles)
 {
 	size_t idx=0;
 	size_t rles_size = xarray_size(rles);
-	printf("RLEs: %p\n", rles);
+	printf("RLEs: %p [size:%lu]\n", rles, rles_size);
 	while (idx < rles_size) {
 		size_t chunk_size;
 		const struct rle_node *r;
@@ -355,24 +355,23 @@ main(int argc, const char *argv[])
 	srand(time(NULL));
 
 
-
 	rle_stats_init(nthreads);
+
+	TSC_REPORT_TICKS("rle_mkrand", {
+		rle_mkrand(rle, rles_nr, &syms_nr);
+		//rle_print(rle);
+	});
 
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%lu\n", rle_rec_limit);
 	printf("Number of threads:%u\n", nthreads);
 
-	TSC_REPORT_TICKS("rle_mkrand:", {
-		rle_mkrand(rle, rles_nr, &syms_nr);
-		//rle_print(rle);
-	});
-
 
 	rle_stats_init(nthreads);
 
 	xarray_t *syms;
-	TSC_REPORT_TICKS("rle_decode:",{
+	TSC_REPORT_TICKS("rle_decode",{
 		syms = rle_decode(rle, syms_nr);
 	});
 
@@ -382,7 +381,7 @@ main(int argc, const char *argv[])
 	/*
 	 * start RLE
 	 */
-	TSC_REPORT_TICKS("rle_encode:", {
+	TSC_REPORT_TICKS("rle_encode", {
 		rle_new = rle_encode(&syms_sl);
 	});
 	//rle_print(rle_new);

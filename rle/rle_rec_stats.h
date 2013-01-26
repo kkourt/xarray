@@ -54,14 +54,8 @@ static inline void
 rle_stats_do_report(const char *prefix, rle_stats_t *st, uint64_t total_ticks)
 {
 #if defined(RLE_STATS)
-	#define pr_ticks(x__) do { \
-		uint64_t t__ = tsc_getticks(&st->x__);  \
-		uint64_t c__ = st->x__.cnt;             \
-		double p__ = t__ / (double)total_ticks; \
-		if (p__ < -0.01) \
-			break; \
-		printf("%s" "%24s" ": %6.1lfM (%4.1lf%%) cnt:%9lu (avg:%7.2lfK)\n", \
-		        prefix, "" #x__, t__/(1000*1000.0), p__*100, c__, t__/(1000.0*c__)); \
+	#define pr_ticks(x) do {         \
+		tsc_report_perc(prefix, &st->x, total_ticks, 0); \
 	} while (0)
 
 	pr_ticks(rle_merge);

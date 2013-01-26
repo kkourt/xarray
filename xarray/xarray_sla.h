@@ -132,7 +132,7 @@ xarray_get(xarray_t *xarr, long idx)
 
 	idx = xarr_idx(xarr, idx);
 	elem_size = xarr->elem_size;
-	node = sla_find(&xarr->sla, elem_size, &chunk_off);
+	node = sla_find(&xarr->sla, idx*elem_size, &chunk_off);
 	assert(chunk_off < node->chunk_size);
 
 	return (xelem_t *)((char *)node->chunk + chunk_off);
@@ -151,7 +151,7 @@ xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_elems)
 
 	size_t chunk_len = node->chunk_size - chunk_off;
 	assert(chunk_len % elem_size == 0);
-	*chunk_elems = chunk_len / elem_size;
+	*chunk_elems = MIN(chunk_len / elem_size, xarray_size(xarr) - idx);
 
 	return (xelem_t *)((char *)node->chunk + chunk_off);
 }
