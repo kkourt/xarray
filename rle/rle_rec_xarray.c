@@ -120,10 +120,26 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 		syms_ch_idx++;
 	}
 
+	struct rle_node *rles_ch;
+	size_t rles_ch_len=0, rles_ch_idx=0;
+	struct rle_node *get_rle(void) {
+		struct rle_node *rle_ret;
+		static size_t rles_idx = 0;
+		if (rles_ch_idx >= rles_ch_len) {
+			rles_idx += rles_ch_len;
+			assert(rles_ch_len == rles_ch_idx);
+			rles_ch = xarray_getchunk(rle, rles_idx, &rles_ch_len);
+			rles_ch_idx = 0;
+		}
+		rle_ret = rles_ch + rles_ch_idx;
+		rles_ch_idx++;
+		return rle_ret;
+	}
+
 	size_t xarr_size = xarray_size(rle);
 	syms_ch = xarray_append_prepare(ret, &syms_ch_len);
 	for (size_t x=0; x<xarr_size; x++) {
-		struct rle_node *n = xarray_get(rle, x);
+		struct rle_node *n = get_rle();
 		for (size_t i=0; i<n->freq; i++) {
 			append_sym(n->symbol);
 		}
