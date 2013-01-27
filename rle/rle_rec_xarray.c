@@ -173,6 +173,7 @@ rle_encode(xslice_t *syms)
 	size_t rles_ch_idx=0;            // rles chunk size
 
 	void append_rle(char symbol, size_t frq) {
+		//RLE_TIMER_START(append_rle, rle_getmyid());
 		if (rles_ch_idx >= rles_ch_len) {
 			assert(rles_ch_idx == rles_ch_len);
 			xarray_append_finalize(rles, rles_ch_idx);
@@ -182,6 +183,7 @@ rle_encode(xslice_t *syms)
 		rles_ch[rles_ch_idx].symbol = symbol;
 		rles_ch[rles_ch_idx].freq = frq;
 		rles_ch_idx++;
+		//RLE_TIMER_PAUSE(append_rle, rle_getmyid());
 	}
 
 
@@ -317,11 +319,45 @@ rle_cmp(xarray_t *rle1, xarray_t *rle2)
 	return ret;
 }
 
+static void
+set_params(void)
+{
+	long x;
+	char *x_str;
+
+	#define set_paraml(env_str, param) \
+	do { \
+		if ( (x_str = getenv(env_str)) != NULL) { \
+			x = atol(x_str); \
+			if (x != 0) \
+				param = x; \
+		} \
+	} while (0)
+
+	#define set_paramf(env_str, param) \
+	do { \
+		if ( (x_str = getenv(env_str)) != NULL) { \
+			x = atof(x_str); \
+			if (x != 0) \
+				param = x; \
+		} \
+	} while (0)
+
+	set_paraml("RLE_REC_LIMIT",   rle_rec_limit);
+	set_paraml("XARR_RLE_GRAIN",  xarr_rle_grain);
+	set_paraml("XARR_SYMS_GRAIN", xarr_syms_grain);
+	set_paraml("SLA_MAX_LEVEL",   sla_max_level);
+	set_paramf("SLA_P",           sla_p);
+
+	#undef set_paraml
+	#undef set_paramf
+
+}
+
 int
 main(int argc, const char *argv[])
 {
 	unsigned long syms_nr, rles_nr;
-	char *rle_rec_limit_str;
 	/*
 	#ifdef YES_CILK
 	Cilk_time tm_begin, tm_elapsed;
@@ -340,11 +376,7 @@ main(int argc, const char *argv[])
 	rle = rle_create_xarr();
 	rle_rec = rle_create_xarr();
 
-	if ( (rle_rec_limit_str = getenv("RLE_REC_LIMIT")) != NULL) {
-		rle_rec_limit = atol(rle_rec_limit_str);
-		if (rle_rec_limit == 0)
-			rle_rec_limit = 64;
-	}
+	set_params();
 
 	rles_nr = 0;
 	if (argc > 1)
@@ -362,10 +394,14 @@ main(int argc, const char *argv[])
 		//rle_print(rle);
 	});
 
-	printf("number of rles:%lu\n", rles_nr);
-	printf("number of symbols:%lu\n", syms_nr);
-	printf("rle_rec_limit:%lu\n", rle_rec_limit);
-	printf("Number of threads:%u\n", nthreads);
+	printf("number of rles:    %lu\n", rles_nr);
+	printf("number of symbols: %lu\n", syms_nr);
+	printf("rle_rec_limit:     %lu\n", rle_rec_limit);
+	printf("xarr_rle_grain:    %lu\n", xarr_rle_grain);
+	printf("xarr_syms_grain:   %lu\n", xarr_syms_grain);
+	printf("sla_max_level:     %lu\n", sla_max_level);
+	printf("sla_p:             %lf\n", sla_p);
+	printf("Number of threads: %u\n", nthreads);
 
 
 	rle_stats_init(nthreads);
@@ -411,7 +447,7 @@ main(int argc, const char *argv[])
 		cilk_sync;
 	});
 
-	tsc_report_ticks("rle_encode_rec:", xticks);
+	tsc_report_ticks("rle_encode_rec", xticks);
 	rle_stats_report(nthreads, xticks);
 	rle_stats_destroy();
 

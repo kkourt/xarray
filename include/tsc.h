@@ -247,14 +247,21 @@ tsc_report(const char *prefix, tsc_t *tsc)
 	printf("%26s: ticks:%7s [%13"PRIu64"]"
 	              " cnt:%7s [%13"PRIu64"]"
 	              " avg:%7s [%16.2lf]"
+	              #if defined(TSC_MINMAX)
 	              " max:%7s [%13"PRIu64"]"
-	              " min:%7s [%13"PRIu64"]\n",
+	              " min:%7s [%13"PRIu64"]"
+	              #endif
+	              "\n",
 	         prefix,
 	         tsc_u64_hstr(ticks),                  ticks,
 	         tsc_u64_hstr(tsc_cnt(tsc)),           tsc_cnt(tsc),
-	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc),
+	         tsc_u64_hstr((uint64_t)tsc_avg(tsc)), tsc_avg(tsc)
+	         #if defined(TSC_MINMAX)
+	         ,
 	         tsc_u64_hstr(tsc_max(tsc)),           tsc_max(tsc),
-	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc));
+	         tsc_u64_hstr(tsc_min(tsc)),           tsc_min(tsc)
+	         #endif
+	         );
 }
 
 #define TSC_REPFL_ZEROES 0x1
