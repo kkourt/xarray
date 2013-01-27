@@ -8,7 +8,7 @@ source scripts/utils.sh
 # parameter space
 rle_rec_limit_S="128 256 512"
 xarr_rle_grain_S="16 32 64"
-rles_S="100000 1000000 10000000"
+rles_S="500000 1000000 5000000"
 
 repeats=3
 resdir="/dev/shm"
