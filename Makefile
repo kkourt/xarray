@@ -1,6 +1,9 @@
 .PHONY: all clean
 
-USE_TCMALLOC  = 1
+USE_TCMALLOC   ?= 1
+DEBUG_BUILD    ?= 0
+NOSTATS_BUILD  ?= 0
+
 
 CILKDIR            = /usr/src/other/cilkplus.install
 #CILKDIR            = /usr/src/other/gcc-cilk.git/install
@@ -12,7 +15,12 @@ WARNINGS            =  -Wall -Wshadow
 OPTFLAGS            = -O2
 CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE
 CXXFLAGS            = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
+ifeq (0, $(DEBUG_BUILD))
 CFLAGS            += -DNDEBUG
+endif
+ifeq (1, $(NOSTATS_BUILD))
+CFLAGS            += -DNO_RLE_STATS
+endif
 LDFLAGS            =
 
 sla_objs           = xarray/sla-chunk.o
