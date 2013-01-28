@@ -5,6 +5,8 @@
 #error "Don't include this file directly. Include xarray.h first!"
 #endif
 
+#define XARRAY_IMPL "DA"
+
 #include "dynarray.h"
 #include <string.h>
 

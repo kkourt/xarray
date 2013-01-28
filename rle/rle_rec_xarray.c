@@ -405,11 +405,9 @@ main(int argc, const char *argv[])
 
 	rle_stats_init(nthreads);
 
-	TSC_REPORT_TICKS("rle_mkrand", {
-		rle_mkrand(rle, rles_nr, &syms_nr);
-		//rle_print(rle);
-	});
+	rle_mkrand(rle, rles_nr, &syms_nr);
 
+	printf("xarray impl: %s\n",        XARRAY_IMPL);
 	printf("number of rles:    %lu\n", rles_nr);
 	printf("number of symbols: %lu\n", syms_nr);
 	printf("rle_rec_limit:     %lu\n", rle_rec_limit);

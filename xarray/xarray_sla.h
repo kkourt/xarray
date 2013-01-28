@@ -19,6 +19,8 @@
 // does malloc() or alloca()
 #define SLA_MAX_LEVEL 5
 
+#define XARRAY_IMPL "SLA"
+
 // @elems_nr is not currently needed, we keep it for doing some assertions. We
 // might use it in the future if we want to keep preallocated space on the array
 // -- i.e., ->sla.total_size / ->elem_size != ->elems_nr
