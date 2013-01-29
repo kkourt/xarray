@@ -17,7 +17,8 @@
 // This is a quick hack, so that we can just use xslice_t to declare a slice
 // statatically. The proper solution is to change the interface, so that app
 // does malloc() or alloca()
-#define SLA_MAX_LEVEL 5
+//#define SLA_MAX_LEVEL 5
+// XXX: Actually defined in command line arguments
 
 #define XARRAY_IMPL "SLA"
 

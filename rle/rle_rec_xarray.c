@@ -414,6 +414,7 @@ main(int argc, const char *argv[])
 	printf("xarr_rle_grain:    %lu\n", xarr_rle_grain);
 	printf("xarr_syms_grain:   %lu\n", xarr_syms_grain);
 	printf("sla_max_level:     %lu\n", sla_max_level);
+	printf("SLA_MAX_LEVEL:     %u\n",  SLA_MAX_LEVEL);
 	printf("sla_p:             %lf\n", sla_p);
 	printf("Number of threads: %u\n", nthreads);
 

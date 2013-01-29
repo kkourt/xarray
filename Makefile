@@ -3,6 +3,7 @@
 USE_TCMALLOC   ?= 1
 DEBUG_BUILD    ?= 0
 NOSTATS_BUILD  ?= 0
+SLA_MAX_LEVEL  ?= 5
 
 
 CILKDIR            = /usr/src/other/cilkplus.install
@@ -13,7 +14,7 @@ CC                 = $(CILKDIR)/bin/gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow
 OPTFLAGS            = -O2
-CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE
+CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE -DSLA_MAX_LEVEL=$(SLA_MAX_LEVEL)
 CXXFLAGS            = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
 ifeq (0, $(DEBUG_BUILD))
 CFLAGS            += -DNDEBUG
