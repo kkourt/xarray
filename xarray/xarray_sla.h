@@ -231,6 +231,7 @@ xarray_append_finalize(xarray_t *xarr, size_t nelems)
 	xarray_verify(xarr);
 }
 
+// XXX: @elems not used -- wrong interface
 static inline xelem_t *
 xarray_pop(xarray_t *xarr, size_t elems)
 {
