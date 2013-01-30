@@ -61,6 +61,7 @@ do_run $repeats "da" "NOSTATS_BUILD=1"
 
 ## Stats RUN
 xresdir="$resdir/stats"
+mkdir $xresdir
 for  sla_max_level in $sla_max_level_S; do
 	do_run $repeats "sla" "SLA_MAX_LEVEL=$sla_max_level"
 done
