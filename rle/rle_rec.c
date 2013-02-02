@@ -291,12 +291,32 @@ rle_cmp(struct rle_head *rle1, struct rle_head *rle2)
 	return 0;
 }
 
+static void
+set_params(void)
+{
+	long x;
+	char *x_str;
+
+	#define set_paraml(env_str, param) \
+	do { \
+		if ( (x_str = getenv(env_str)) != NULL) { \
+			x = atol(x_str); \
+			if (x != 0) \
+				param = x; \
+		} \
+	} while (0)
+
+	set_paraml("RLE_REC_LIMIT",   rle_rec_limit);
+
+	#undef set_paraml
+}
+
 int
 main(int argc, const char *argv[])
 {
 	struct rle_head *rle, *rle_new, *rle_rec;
 	unsigned long syms_nr, rles_nr;
-	char *symbols, *rle_rec_limit_str;
+	char *symbols;
 	tsc_t t;
 
 	/*
@@ -307,11 +327,7 @@ main(int argc, const char *argv[])
 	#endif
 	*/
 
-	if ( (rle_rec_limit_str = getenv("RLE_REC_LIMIT")) != NULL){
-		rle_rec_limit = atol(rle_rec_limit_str);
-		if (rle_rec_limit == 0)
-			rle_rec_limit = 64;
-	}
+	set_params();
 
 	unsigned nthreads;
 	#ifdef NO_CILK
