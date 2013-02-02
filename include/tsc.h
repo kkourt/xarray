@@ -237,7 +237,7 @@ tsc_u64_hstr(uint64_t ul)
 
 static inline void tsc_report_ticks(char *prefix, uint64_t ticks)
 {
-	printf("%20s: %s ticks [%13lu]\n", prefix, tsc_u64_hstr(ticks), ticks);
+	printf("%26s: ticks:%7s [%13lu]\n", prefix, tsc_u64_hstr(ticks), ticks);
 }
 
 static inline void

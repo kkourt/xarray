@@ -171,7 +171,7 @@ rle_init_pools()
 
 }
 
-static void
+static void __attribute__((unused))
 rle_print_pool_stats(void)
 {
 	struct rle_mempool *pool;
@@ -583,7 +583,7 @@ rle_cmp(struct rle_head *rle1, struct rle_head *rle2)
 	return 0;
 }
 
-#include "timer.h"
+#include "tsc.h"
 
 int
 main(int argc, const char *argv[])
@@ -591,7 +591,7 @@ main(int argc, const char *argv[])
 	struct rle_head *rle, *rle_new=NULL, *rle_rec;
 	unsigned long syms_nr, rles_nr;
 	char *symbols, *rle_rec_limit_str;
-	xtimer_t t;
+	tsc_t t;
 	/*
 	#ifdef YES_CILK
 	Cilk_time tm_begin, tm_elapsed;
@@ -633,24 +633,24 @@ main(int argc, const char *argv[])
 	cilk_sync;
 
 	do_rle_pool_prealloc_nodes(__mempools + 0, syms_nr);
-	rle_print_pool_stats();
+	//rle_print_pool_stats();
 
 	/* rle encode */
-	timer_init(&t); timer_start(&t);
+	tsc_init(&t); tsc_start(&t);
 	rle_new = rle_encode(__mempools + 0, symbols, syms_nr);
-	timer_pause(&t); printf("rle_encode:     %lf secs\n", timer_secs(&t));
+	tsc_pause(&t); tsc_report("rle_encode", &t);
 	assert(rle_cmp(rle, rle_new) == 1);
 
 	rle_nodes_dealloc(rle_new->first);
 	rle_head_dealloc(__mempools + 0, rle_new);
-	rle_print_pool_stats();
+	//rle_print_pool_stats();
 	rle_pool_balance_nodes();
 
 	/* rle recursive encode */
-	timer_init(&t); timer_start(&t);
+	tsc_init(&t); tsc_start(&t);
 	rle_rec = cilk_spawn rle_encode_rec(symbols, syms_nr);
 	cilk_sync;
-	timer_pause(&t); printf("rle_encode_rec: %lf secs\n", timer_secs(&t));
+	tsc_pause(&t); tsc_report("rle_encode_rec", &t);
 
 	if (rle_cmp(rle,rle_rec) != 1){
 		rle_print(rle);
@@ -662,7 +662,7 @@ main(int argc, const char *argv[])
 	rle_nodes_dealloc(rle->first);
 	rle_head_dealloc(__mempools + 0, rle_rec);
 	rle_head_dealloc(__mempools + 0, rle);
-	rle_print_pool_stats();
+	//rle_print_pool_stats();
 	rle_pools_free();
 	free(symbols);
 	free(__mempools);
