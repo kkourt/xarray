@@ -15,6 +15,19 @@
 #include "tsc.h"
 #include "misc.h"
 
+#include "rle_rec_stats.h"
+DECLARE_RLE_STATS
+
+unsigned
+rle_getmyid(void)
+{
+	unsigned ret = 0;
+	#if defined(YES_CILK)
+	ret = __cilkrts_get_worker_number();
+	#endif
+	return ret;
+}
+
 struct rle_node {
 	char   symbol;
 	unsigned long freq;
@@ -173,7 +186,9 @@ rle_encode(char *symbols, unsigned long syms_nr)
 			continue;
 		}
 
+		RLE_TIMER_START(rle_alloc, rle_getmyid());
 		n = rle_alloc_init(prev, freq, NULL);
+		RLE_TIMER_PAUSE(rle_alloc, rle_getmyid());
 
 		node->next = n;
 		node = n;
@@ -298,6 +313,14 @@ main(int argc, const char *argv[])
 			rle_rec_limit = 64;
 	}
 
+	unsigned nthreads;
+	#ifdef NO_CILK
+	nthreads = 1;
+	#else
+	nthreads = __cilkrts_get_nworkers();
+	#endif
+	rle_stats_create(nthreads);
+
 	rles_nr = 0;
 	if (argc > 1)
 		rles_nr = atol(argv[1]);
@@ -312,7 +335,7 @@ main(int argc, const char *argv[])
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%u\n", rle_rec_limit);
 	#ifndef NO_CILK
-	printf("Number of processors:%u\n", __cilkrts_get_nworkers());
+	printf("Number of processors:%u\n", nthreads);
 	#endif
 	symbols = rle_decode(rle, syms_nr);
 
@@ -335,11 +358,14 @@ main(int argc, const char *argv[])
 	#endif
 	*/
 
+	rle_stats_init(nthreads);
 	tsc_init(&t); tsc_start(&t);
 	rle_rec = cilk_spawn rle_encode_rec(symbols, syms_nr);
 	cilk_sync;
 	tsc_pause(&t);
 	printf("rle_encode_rec:     %s ticks\n", ul_hstr(tsc_getticks(&t)));
+	rle_stats_report(nthreads, tsc_getticks(&t));
+	rle_stats_destroy();
 
 	/*
 	#ifdef YES_CILK
