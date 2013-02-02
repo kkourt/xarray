@@ -77,10 +77,12 @@ static inline void
 rle_stats_report(unsigned nthreads, uint64_t total_ticks)
 {
 #if defined(RLE_STATS)
+	printf("RLE_STATS START\n");
 	for (unsigned i=0; i<nthreads; i++) {
 		printf("thread %3u:\n", i);
 		rle_stats_do_report(RleStats + i, total_ticks);
 	}
+	printf("RLE_STATS END\n");
 #endif
 }
 

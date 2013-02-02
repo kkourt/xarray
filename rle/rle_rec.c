@@ -347,6 +347,7 @@ main(int argc, const char *argv[])
 	rle = rle_mkrand(rles_nr, &syms_nr);
 	//rle_print(rle);
 
+	printf("xarray impl: %s\n",        "LISTARR");
 	printf("number of rles:%lu\n", rles_nr);
 	printf("number of symbols:%lu\n", syms_nr);
 	printf("rle_rec_limit:%u\n", rle_rec_limit);
@@ -359,7 +360,7 @@ main(int argc, const char *argv[])
 	rle_new = rle_encode(symbols, syms_nr);
 	//rle_print(rle_new);
 	tsc_pause(&t);
-	printf("rle_encode:         %s ticks\n", ul_hstr(tsc_getticks(&t)));
+	tsc_report("rle_encode", &t);
 	if (rle_cmp(rle, rle_new) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
@@ -379,7 +380,7 @@ main(int argc, const char *argv[])
 	rle_rec = cilk_spawn rle_encode_rec(symbols, syms_nr);
 	cilk_sync;
 	tsc_pause(&t);
-	printf("rle_encode_rec:     %s ticks\n", ul_hstr(tsc_getticks(&t)));
+	tsc_report("rle_encode_rec", &t);
 	rle_stats_report(nthreads, tsc_getticks(&t));
 	rle_stats_destroy();
 

@@ -149,7 +149,7 @@ clean:
 	rm -f xarray/*.o
 	#
 	rm -f rle/*.o
-	rm -f rle/rle_rec prle_rec    rle/rle_rec_mpools rle/prle_rec_mpools
+	rm -f rle/rle_rec rle/prle_rec  rle/rle_rec_mpools rle/prle_rec_mpools
 	rm -f rle/prle_rec_xarray_da  rle/rle_rec_xarray_da
 	rm -f rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
 	#
