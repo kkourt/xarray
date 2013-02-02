@@ -6,7 +6,7 @@ set -e ## Exit if error
 source scripts/utils.sh
 
 # parameters
-rle_rec_limit=128
+rle_rec_limit_S="128 256"
 xarr_rle_grain=32
 rles=5000000
 
@@ -29,12 +29,14 @@ function do_runs() {
 	make clean
 	make -j $(nproc) ${makeargs} all > $resdir/$fprefix-build
 	for xarr in "da" "sla"; do
-		for threads in 1 $(seq 2 2 $(nproc)); do
-			for i in $(seq $xrepeats);  do
-				CILK_NWORKERS=$threads         \
-				RLE_REC_LIMIT=$rle_rec_limit   \
-				XARR_RLE_GRAIN=$xarr_rle_grain \
-				./rle/prle_rec_xarray_$xarr $rles
+		for rle_rec_limit in $rle_rec_limit_S; do
+			for threads in 1 $(seq 2 2 $(nproc)); do
+				for i in $(seq $xrepeats);  do
+					CILK_NWORKERS=$threads         \
+					RLE_REC_LIMIT=$rle_rec_limit   \
+					XARR_RLE_GRAIN=$xarr_rle_grain \
+					./rle/prle_rec_xarray_$xarr $rles
+				done
 			done
 		done
 	done > $resdir/$fprefix-runlog
