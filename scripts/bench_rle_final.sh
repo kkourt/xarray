@@ -28,6 +28,7 @@ function do_runs() {
 	fprefix=$3
 	make clean
 	make -j $(nproc) ${makeargs} all > $resdir/$fprefix-build
+
 	for xarr in "da" "sla"; do
 		for rle_rec_limit in $rle_rec_limit_S; do
 			for threads in 1 $(seq 2 2 $(nproc)); do
@@ -38,8 +39,18 @@ function do_runs() {
 					./rle/prle_rec_xarray_$xarr $rles
 				done
 			done
+		done > $resdir/${fprefix}-xarray_${xarr}-runlog
+	done
+
+	for rle_rec_limit in $rle_rec_limit_S; do
+		for threads in 1 $(seq 2 2 $(nproc)); do
+			for i in $(seq $xrepeats);  do
+				CILK_NWORKERS=$threads         \
+				RLE_REC_LIMIT=$rle_rec_limit   \
+				./rle/prle_rec $rles
+			done
 		done
-	done > $resdir/$fprefix-runlog
+	done > $resdir/${fprefix}-noxarray-runlog
 }
 
 do_runs $repeats "NOSTATS_BUILD=1" "nostats"
