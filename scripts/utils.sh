@@ -5,6 +5,8 @@ function machine_info() {
         echo "MACHINE INFO"
         uname -a
         LC_ALL=C $ifgetips
+	cat /proc/cpuinfo
+	~/bin/coresinfo
 }
 
 function git_info() {
