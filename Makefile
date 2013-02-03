@@ -20,7 +20,7 @@ ifeq (0, $(DEBUG_BUILD))
 CFLAGS            += -DNDEBUG
 endif
 ifeq (1, $(NOSTATS_BUILD))
-CFLAGS            += -DNO_RLE_STATS
+CFLAGS            += -DNO_RLE_STATS -DNO_SUM_STATS
 endif
 LDFLAGS            =
 
@@ -58,7 +58,7 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      floorplan/floorplan-serial floorplan/floorplan \
      floorplan/floorplan_sla                        \
-     sum/psum_xarray_da sum/psum_xarray_sla
+     sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp
 
      #xarray/xvarray-tests/branch_sla
 
@@ -75,6 +75,9 @@ xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
 
 ## SUM
+
+sum/sum_omp: sum/sum_openmp.c $(hdrs)
+	$(CC) $(CFLAGS) $(LDFLAGS) -fopenmp $< -o $@
 
 sum/psum_xarray_da.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c

@@ -29,5 +29,4 @@ floorplan/reducer_test
 floorplan/reducer_test_cpp
 sum/psum_xarray_da
 sum/psum_xarray_sla
-
-
+sum/sum_omp
