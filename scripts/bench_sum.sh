@@ -6,7 +6,7 @@ set -e ## Exit if error
 source scripts/utils.sh
 
 # parameters
-sum_rec_limit_S="128 256 512"
+sum_rec_limit_S="256 512"
 xarr_grain_S="512 1024 4096"
 xnums=50000000
 
@@ -43,6 +43,13 @@ function do_runs() {
 			done
 		done > $resdir/${fprefix}-xarray_${xarr}-runlog
 	done
+
+	for threads in 1 $(seq 2 2 $(nproc)); do
+		for i in $(seq $xrepeats);  do
+			OMP_NUM_THREADS=$threads        \
+			./sum/sum_omp $xnums
+		done
+	done > $resdir/${fprefix}-omp-runlog
 }
 
 
