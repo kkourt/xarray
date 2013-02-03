@@ -382,6 +382,8 @@ main(int argc, const char *argv[])
 	#endif
 	*/
 
+	set_params();
+
 	unsigned nthreads = 1;
 	#if defined(YES_CILK)
 	nthreads = __cilkrts_get_nworkers();
@@ -392,7 +394,6 @@ main(int argc, const char *argv[])
 	rle = rle_create_xarr();
 	rle_rec = rle_create_xarr();
 
-	set_params();
 
 	rles_nr = 0;
 	if (argc > 1)
