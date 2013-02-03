@@ -14,6 +14,8 @@
 
 #include "tsc.h"
 #include "xarray.h"
+#include "sum_stats.h"
+DECLARE_SUM_STATS
 
 // parameters
 static unsigned long sum_rec_limit   = 256;
@@ -101,6 +103,7 @@ sum_seq(xslice_t *ints)
 	size_t ch_len;
 	int ret = 0;
 
+	SUM_TIMER_START(sum_seq);
 	while (1) {
 		ch = xslice_getnextchunk(ints, &ch_len);
 		if (ch_len == 0)
@@ -109,6 +112,7 @@ sum_seq(xslice_t *ints)
 		for (size_t i=0; i<ch_len; i++)
 			ret += ch[i];
 	}
+	SUM_TIMER_PAUSE(sum_seq);
 
 	return ret;
 }
@@ -119,7 +123,9 @@ sum_rec(xslice_t *ints)
 
 	int ret, ret1, ret2;
 
-	assert(xslice_size(syms) > 0);
+	assert(xslice_size(ints) > 0);
+        int __attribute__((unused)) myid = __cilkrts_get_worker_number();
+	mysum_stats_set(myid);
 
 	/* unitary solution */
 	if (xslice_size(ints) <= sum_rec_limit) {
@@ -127,7 +133,9 @@ sum_rec(xslice_t *ints)
 	}
 
 	xslice_t s1, s2;
+	SUM_TIMER_START(sum_split);
 	xslice_split(ints, &s1, &s2);
+	SUM_TIMER_PAUSE(sum_split);
 	ret1 = cilk_spawn sum_rec(&s1);
 	ret2 = cilk_spawn sum_rec(&s2);
 	cilk_sync;
@@ -150,9 +158,12 @@ main(int argc, const char *argv[])
 	nthreads = 1;
 	#endif
 
-	ints = create_xarr_int();
+	sum_stats_create(nthreads);
+	sum_stats_init(nthreads);
 
 	set_params();
+
+	ints = create_xarr_int();
 
 	nints = 0;
 	if (argc > 1)
@@ -174,6 +185,7 @@ main(int argc, const char *argv[])
 
 	sum1 = xarr_int_mkrand(ints, nints);
 
+	sum_stats_init(nthreads);
 	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
 
 	TSC_MEASURE_TICKS(xticks, {
@@ -182,6 +194,7 @@ main(int argc, const char *argv[])
 	});
 
 	tsc_report_ticks("sum_rec", xticks);
+	sum_stats_report(nthreads, xticks);
 
 	if (sum1 != sum2) {
 		fprintf(stderr, "Error in sum: %d vs %d\n", sum1, sum2);
