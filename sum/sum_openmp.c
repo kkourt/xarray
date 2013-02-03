@@ -48,7 +48,10 @@ main(int argc, const char *argv[])
 	if (nints == 0)
 		nints = 100000;
 
+	#pragma omp parallel
+	#pragma omp master
 	nthreads = omp_get_num_threads();
+
 	printf("Number of threads: %u\n", nthreads);
 	printf("number of ints:    %lu\n", nints);
 	arr = arr_int_mkrand(nints, &sum1);
