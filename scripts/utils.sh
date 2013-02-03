@@ -4,6 +4,8 @@ function machine_info() {
         echo "DATE: $(date +%Y%m%d.%H%M%S)"
         echo "MACHINE INFO"
         uname -a
+	getconf GNU_LIBC_VERSION
+	getconf GNU_LIBPTHREAD_VERSION
         LC_ALL=C $ifgetips
 	cat /proc/cpuinfo
 	~/bin/coresinfo
