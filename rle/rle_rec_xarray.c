@@ -31,7 +31,7 @@ rle_getmyid(void)
 // parameters
 static unsigned long rle_rec_limit   = 256;
 static unsigned long xarr_rle_grain  = 32;
-static unsigned long xarr_syms_grain = 256;
+static unsigned long xarr_syms_grain = 512;
 static unsigned long sla_max_level = 5;
 static float         sla_p = 0.5;
 
