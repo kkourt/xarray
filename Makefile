@@ -73,6 +73,20 @@ xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h $(hdrs)
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
 
+## SUM
+
+sum/psum_xarray_da.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
+
+sum/psum_xarray_sla.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_SLA__ $< -o $@ -c
+
+sum/psum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/psum_xarray_da.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+sum/psum_xarray_sla: xarray/sla-chunk.o sum/psum_xarray_sla.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
 ## RLE
 
 rle/prle_rec_xarray_sla: rle/prle_rec_xarray_sla.o xarray/sla-chunk.o
@@ -157,6 +171,8 @@ clean:
 	rm -f floorplan/floorplan floorplan/floorplan-serial xarray/*.o
 	#
 	rm -f verp/*.o
+	#
+	rm -f sum/*.o
 
 
 ## xvarray tests

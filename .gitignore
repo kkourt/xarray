@@ -27,4 +27,7 @@ floorplan/floorplan-serial
 xarray/xvarray-tests/branch_sla
 floorplan/reducer_test
 floorplan/reducer_test_cpp
+sum/psum_xarray_da
+sum/psum_xarray_sla
+
 
