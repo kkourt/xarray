@@ -15,6 +15,7 @@
 
 #include "tsc.h"
 #include "xarray.h"
+#include "sum_op.h"
 #include "sum_stats.h"
 DECLARE_SUM_STATS
 
@@ -44,6 +45,7 @@ create_xarr_int(void)
 	return ret;
 }
 
+
 // 0.99 , return sum
 size_t
 xarr_int_mkrand(xarray_t *xarr, size_t nints)
@@ -57,7 +59,7 @@ xarr_int_mkrand(xarray_t *xarr, size_t nints)
 		int *x_ptr;
 		x_ptr   = xarray_append(xarr);
 		*x_ptr  = rand() % 100;
-		ret    += (int)floor(sqrt((double)*x_ptr));
+		ret   += sum_op(*x_ptr);
 	}
 
 	return ret;
@@ -111,7 +113,7 @@ sum_seq(xslice_t *ints)
 			break;
 
 		for (size_t i=0; i<ch_len; i++)
-			ret += (int)floor(sqrt((double)ch[i]));
+			ret += sum_op(ch[i]);
 	}
 	SUM_TIMER_PAUSE(sum_seq);
 
@@ -125,7 +127,11 @@ sum_rec(xslice_t *ints)
 	int ret, ret1, ret2;
 
 	assert(xslice_size(ints) > 0);
+        #if defined(YES_CILK)
         int __attribute__((unused)) myid = __cilkrts_get_worker_number();
+        #else
+        int __attribute__((unused)) myid = 0;
+        #endif
 	mysum_stats_set(myid);
 
 	/* unitary solution */

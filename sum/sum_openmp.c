@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
-#include <math.h>
 
 #ifdef NO_CILK
 #define cilk_spawn
@@ -15,6 +14,7 @@
 
 #include <omp.h>
 
+#include "sum_op.h"
 #include "misc.h"
 #include "tsc.h"
 
@@ -28,7 +28,7 @@ arr_int_mkrand(size_t nints, int *sum_ptr)
 
 	for (size_t i=0; i<nints; i++) {
 		ret[i] = rand() % 100;
-		sum += (int)floor(sqrt((double)ret[i]));
+		sum += sum_op(ret[i]);
 	}
 
 	*sum_ptr = sum;
@@ -61,7 +61,7 @@ main(int argc, const char *argv[])
 	tsc_t t; tsc_init(&t); tsc_start(&t);
 	#pragma omp parallel for reduction(+:sum2)
 	for (size_t i=0; i<nints; i++) {
-		sum2 += (int)floor(sqrt((double)arr[i]));
+		sum2 += sum_op(arr[i]);
 	}
 	tsc_pause(&t);
 

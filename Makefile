@@ -58,7 +58,8 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      floorplan/floorplan-serial floorplan/floorplan \
      floorplan/floorplan_sla                        \
-     sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp
+     sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
+     sum/sum_xarray_da sum/sum_xarray_sla
 
      #xarray/xvarray-tests/branch_sla
 
@@ -89,6 +90,18 @@ sum/psum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/psum_xarray_d
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 sum/psum_xarray_sla: xarray/sla-chunk.o sum/psum_xarray_sla.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+sum/sum_xarray_da.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
+
+sum/sum_xarray_sla.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
+
+sum/sum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/sum_xarray_da.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+
+sum/sum_xarray_sla: xarray/sla-chunk.o sum/sum_xarray_sla.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 ## RLE
@@ -177,6 +190,8 @@ clean:
 	rm -f verp/*.o
 	#
 	rm -f sum/*.o
+	rm -rf sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp
+	rm -rf sum/sum_xarray_da sum/sum_xarray_sla
 
 
 ## xvarray tests
