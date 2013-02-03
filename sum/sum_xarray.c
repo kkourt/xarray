@@ -193,7 +193,7 @@ main(int argc, const char *argv[])
 		cilk_sync;
 	});
 
-	tsc_report_ticks("sum_rec", xticks);
+	tsc_report_ticks("sum_rec_ALL", xticks);
 	sum_stats_report(nthreads, xticks);
 
 	if (sum1 != sum2) {
