@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <assert.h>
+#include <math.h>
 
 #ifdef NO_CILK
 #define cilk_spawn
@@ -56,7 +57,7 @@ xarr_int_mkrand(xarray_t *xarr, size_t nints)
 		int *x_ptr;
 		x_ptr   = xarray_append(xarr);
 		*x_ptr  = rand() % 100;
-		ret    += *x_ptr;
+		ret    += (int)floor(sqrt((double)*x_ptr));
 	}
 
 	return ret;
@@ -110,7 +111,7 @@ sum_seq(xslice_t *ints)
 			break;
 
 		for (size_t i=0; i<ch_len; i++)
-			ret += ch[i];
+			ret += (int)floor(sqrt((double)ch[i]));
 	}
 	SUM_TIMER_PAUSE(sum_seq);
 
