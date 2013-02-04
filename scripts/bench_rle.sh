@@ -6,15 +6,15 @@ set -e ## Exit if error
 source scripts/utils.sh
 
 # parameters
-rle_rec_limit_S="128 256 512"
-xarr_rle_grain_S="32 64"
+rle_rec_limit_S="512 1024"
+xarr_rle_grain_S="32"
 rles=5000000
 
 repeats=4
 resdir="/dev/shm"
 xdate="$(date +%Y%m%d.%H%M%S)"
 
-resdir="${resdir}/bench_rle_paper.${xdate}"
+resdir="${resdir}/bench_rle.${xdate}"
 mkdir $resdir
 
 echo "Starting run at $(date) [output logs on ${resdir}]"
