@@ -4,22 +4,28 @@ from pprint import pprint
 
 from pychart import *
 
-from logparse import LogParser
+from logparse import LogParser, MultiFiles
 from dict_hier import dhier_reduce, dhier_reduce_many, dhier_reduce_many2
 from kkstats import StatList
 from xdict import xdict
 from humanize_nr import humanize_nr
 from itertools import product
+from copy import deepcopy
+from math import floor, ceil
+import os.path
 
-parse_conf = r'''
+xarr_parse_conf = r'''
 /^xarray impl: *(\S+)$/
 	xarray = _g1
 
 /^Number of threads: *(\d+).*$/
 	nthreads = int(_g1)
 
-/^ *rle_encode_rec: .*ticks \[ *(\d+)\]$/
+/^ *rle_encode_rec: ticks: .*\[ *(\d+)\].*$/
 	ticks = int(_g1)
+
+/^ *rle_encode: ticks: .*\[ *(\d+)\] cnt:.*$/
+	serial_ticks = int(_g1)
 
 /^number of rles: *(\d+)$/
 	rles = int(_g1)
@@ -37,39 +43,136 @@ parse_conf = r'''
 	flush
 '''
 
-sla_max_level_def = 5 # glitch -- needed for DA parsing
-myhier = ("rles", "rec_limit", "xarr_rle_grain", "xarray", "sla_max_level",
-		  "nthreads")
+rle_parse_conf = r'''
+/^xarray impl: *(\S+)$/
+	flush
+	xarray = _g1
 
-def do_parse(fname):
-	f = open(fname)
-	lp = LogParser(parse_conf, debug=False, globs={}, eof_flush=False)
-	lp.go(f)
-	d,params = dhier_reduce_many2(
-		lp.data,
-		myhier,
+/^Number of processors: *(\d+).*$/
+	nthreads = int(_g1)
+
+/^ *rle_encode_rec: ticks: .*\[ *(\d+)\] cnt:.*$/
+	ticks = int(_g1)
+
+/^ *rle_encode: ticks: .*\[ *(\d+)\] cnt:.*$/
+	serial_ticks = int(_g1)
+
+/^number of rles: *(\d+)$/
+	rles = int(_g1)
+
+/^rle_rec_limit: *(\d+)$/
+	rec_limit = int(_g1)
+
+'''
+
+def do_parse(dirname):
+	print dirname
+	slamf = MultiFiles(iter([dirname + "/nostats-xarray_da-runlog",
+	                        dirname + "/nostats-xarray_sla-runlog"]),
+					 lambda x: "__START__: %s" % x,
+					 lambda x: "__END__: %s" % x)
+	lp = LogParser(xarr_parse_conf, debug=False, globs={}, eof_flush=False)
+
+	lp.go(slamf)
+	sla_d, params = dhier_reduce_many2(
+		deepcopy(lp.data),
+		("rles", "rec_limit", "xarr_rle_grain", "sla_max_level", "xarray",
+		  "nthreads"),
 		map_fn=lambda lod: StatList((x['ticks'] for x in lod))
 	)
-	pprint(params)
-	return d,params
+
+	serial_d = dhier_reduce_many(
+		lp.data,
+		("rles", "rec_limit", "xarr_rle_grain", "sla_max_level", "xarray",
+		  "nthreads"),
+		map_fn=lambda lod: StatList((x['serial_ticks'] for x in lod))
+	)
+
+	lp = LogParser(rle_parse_conf, debug=False, globs={}, eof_flush=False)
+	f = open(dirname + "/nostats-noxarray-runlog")
+	lp.go(f)
+	rle_d = dhier_reduce_many(
+		lp.data,
+		("rles", "rec_limit", "xarray", "nthreads"),
+		map_fn=lambda lod: StatList((x['ticks'] for x in lod))
+	)
+
+	return sla_d, serial_d, rle_d, params,
+
+tick_marks = [
+	tick_mark.Square(size=4, fill_style=fill_style.black),
+	tick_mark.Circle(size=4),
+	tick_mark.DownTriangle(size=4, fill_style=fill_style.black),
+]
+tick_mark_idx = 0
+
+class MyLineP(line_plot.T):
+    def get_legend_entry(self):
+        ret = line_plot.T.get_legend_entry(self)
+        ret.line_len = 20
+        return ret;
 
 def add_plot(myarea, label, base, mydata):
+	global tick_mark_idx
 	x = []
 	for (n, n_d) in mydata.iteritems():
 		n_d.setfn(lambda x : base / x)
 		x.append((n, n_d.avg, n_d.avg_minus, n_d.avg_plus))
 	x = sorted(x, key= lambda x: x[0])
-	myarea.add_plot(line_plot.T(
+	myarea.add_plot(MyLineP(
 		data=x,
 		label=label,
 		y_error_minus_col=3,
 		y_error_plus_col=3,
 		error_bar = error_bar.error_bar2(tic_len=5, hline_style=line_style.gray50),
-		tick_mark=tick_mark.X(size=3),
+		tick_mark=tick_marks[tick_mark_idx % len(tick_marks)]
 	))
+	tick_mark_idx += 1
 
-def do_plot2(d, params, fname="plot.pdf"):
-	theme.use_color = True
+def do_plot_params(d, serial_d, rle_d, ncores, area_y, canv,
+		           rles, rec_limit, xarr_rle_grain, sla_max_level):
+	conf = "rec_limit:%d xarr_grain:%d sla_max_level:%d rles:%4.1f%s" \
+	       % ((rec_limit, xarr_rle_grain, sla_max_level) + humanize_nr(rles))
+	print "*****", conf
+	ar  = area.T(
+		x_axis  = axis.X(label="/10{}cores", format="%d",
+						 tic_interval = lambda xmin,xmax:
+										[xmin] + range(xmin+1, xmax+1, 2)),
+		y_axis  = axis.Y(label="/10{}speedup", format="%d", tic_interval=1),
+		#y_grid_interval = 1,
+		y_range = (0, None),
+		y_grid_interval = lambda mn,mx: range(int(floor(mn)),1+int(ceil(mx))),
+		x_range = (1, ncores),
+		legend = legend.T(loc=(20,110)),
+		size = (300,150),
+		loc  = (0, area_y)
+	)
+
+	plot_d = d[rles][rec_limit][xarr_rle_grain][sla_max_level]
+	plot_rle_d = rle_d[rles][rec_limit]
+	da_base = plot_d["DA"][1].avg
+
+	plot_serial_d = serial_d[rles][rec_limit][xarr_rle_grain][sla_max_level]
+	serial = da_base / plot_serial_d["DA"][1].min
+
+	add_plot(ar, "da ", da_base, plot_d["DA"])
+	add_plot(ar, "sla", da_base, plot_d["SLA"])
+	add_plot(ar, "array+list", da_base, plot_rle_d["LISTARR"])
+
+	ar.add_plot(MyLineP(
+		data = [(1,serial), (ncores, serial)],
+		label= "serial",
+		tick_mark=None))
+	ar.draw()
+	# has to be after .draw(), to calculate min/maxes
+	# draw a line for the serial decoder
+	#canv.line(line_style.T(color=color.red, dash = (4,2), width=2),
+	#		  ar.x_pos(1), ar.y_pos(serial),
+	#		  ar.x_pos(ncores), ar.y_pos(serial))
+	#
+
+def do_plot_all(d, serial_d, rle_d, params, fname="plot.pdf"):
+	theme.use_color = False
 	theme.get_options()
 	canv = canvas.init(fname=fname, format="pdf")
 	ncores = max(params['nthreads'])
@@ -79,37 +182,47 @@ def do_plot2(d, params, fname="plot.pdf"):
 		params["rles"],
 		params["rec_limit"],
 		params["xarr_rle_grain"],
+		params["sla_max_level"]
 	)
 
 	area_y = 0
-	for rles, rec_limit, xarr_rle_grain in params_space:
-		conf = "rec_limit:%d xarr_grain:%d rles:%4.1f%s" \
-			% ((rec_limit, xarr_rle_grain) + humanize_nr(rles))
-		ar  = area.T(
-			x_axis  = axis.X(label="/10{}cores", format="%d"),
-			y_axis  = axis.Y(label="/10{}speedup", format="%d"),
-			y_range = [0,16],
-			x_range = [1, ncores],
-			size = (400,200),
-			loc  = (0, area_y)
-		)
+	for (rles, rec_limit, xarr_rle_grain, sla_max_level) in params_space:
+		conf = "rec_limit:%d xarr_grain:%d sla_max_level:%d rles:%4.1f%s" \
+			% ((rec_limit, xarr_rle_grain, sla_max_level) + humanize_nr(rles))
+		do_plot_params(d, serial_d, rle_d, ncores, area_y, canv,
+		               rles, rec_limit, xarr_rle_grain, sla_max_level)
 		canv.show(100, area_y + 180, conf)
-		plot_d = d[rles][rec_limit][xarr_rle_grain]
-		da_data = plot_d['DA'][sla_max_level_def]
-		da_base = da_data[1].avg
-		add_plot(ar, "DA " + conf, da_base, da_data)
-
-		sla_data = plot_d["SLA"]
-		for sla_max_level, data0 in sla_data.iteritems():
-			add_plot(ar, ("SLA (max_level:%3d)" % sla_max_level), da_base, data0)
-
 		area_y += 300
 		line_plot.line_style_itr.reset()
-		ar.draw()
 	print "CLOSE"
 	canv.close()
 
+def do_plot(d, serial_d, rle_d, params, fname="plot.pdf"):
+	theme.use_color = False
+	theme.get_options()
+	canv = canvas.init(fname=fname, format="pdf")
+	ncores = max(params['nthreads'])
+	do_plot_params(d, serial_d, rle_d, ncores, 0, canv, 5000000, 512, 32, 5)
+	canv.close()
+
+#area_y = 0
+#for (rles, rec_limit, xarr_rle_grain, sla_max_level) in params_space:
+#	conf = "rec_limit:%d xarr_grain:%d sla_max_level:%d rles:%4.1f%s" \
+#		% ((rec_limit, xarr_rle_grain, sla_max_level) + humanize_nr(rles))
+#	do_plot_params(d, serial_d, rle_d, ncores, area_y, canv,
+#	               rles, rec_limit, xarr_rle_grain, sla_max_level)
+#	canv.show(100, area_y + 180, conf)
+#	area_y += 300
+#	line_plot.line_style_itr.reset()
+#print "CLOSE"
+#canv.close()
+
 from sys import argv
 if __name__ == '__main__':
-	data, params = do_parse(argv[1])
-	do_plot2(data, params, fname=argv[1] + "-plot.pdf")
+	xarr_data, serial_data, rle_data, params = do_parse(argv[1])
+	outfile, outext = os.path.splitext(argv[2])
+	do_plot_all(deepcopy(xarr_data),
+	            deepcopy(serial_data),
+				deepcopy(rle_data),
+				params, fname=outfile + "-all" + outext)
+	do_plot(xarr_data, serial_data, rle_data, params, fname=argv[2])
