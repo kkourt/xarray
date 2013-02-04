@@ -2,6 +2,9 @@ xarr_grain_S="500 1000 2000 5000 10000 20000 50000"
 xints=100000000
 repeats=4
 
+make clean
+make NOSTATS_BUILD=1 ./sum/sum_xarray_da ./sum/sum_xarray_sla
+
 for xarr_grain in $xarr_grain_S; do
 	for i in $(seq $repeats); do
 		cmd_da="SUM_REC_LIMIT=$xarr_grain XARR_GRAIN=$xarr_grain ./sum/sum_xarray_da  $xints"
