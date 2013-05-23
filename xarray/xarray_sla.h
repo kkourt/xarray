@@ -154,7 +154,7 @@ xarray_getchunk(xarray_t *xarr, long idx, size_t *chunk_elems)
 
 	size_t chunk_len = node->chunk_size - chunk_off;
 	assert(chunk_len % elem_size == 0);
-	*chunk_elems = MIN(chunk_len / elem_size, xarray_size(xarr) - idx);
+	*chunk_elems = XARR_MIN(chunk_len / elem_size, xarray_size(xarr) - idx);
 
 	return (xelem_t *)((char *)node->chunk + chunk_off);
 }
@@ -364,7 +364,7 @@ xslice_getchunk(xslice_t *xsl, long idx, size_t *elems)
 	//n = sla_find(&xarr->sla, real_idx, &chunk_off);
 	chunk_size = n->chunk_size - chunk_off;
 	assert(chunk_size % elem_size == 0);
-	*elems = MIN(chunk_size / elem_size, xsl->len - idx);
+	*elems = XARR_MIN(chunk_size / elem_size, xsl->len - idx);
 	return (xelem_t *)((char *)n->chunk + chunk_off);
 }
 
@@ -389,7 +389,7 @@ xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
 	assert(node_key % elem_size == 0);
 
 	chunk_off = real_idx - node_key;
-	*nelems = MIN(xsl->len, (node->chunk_size - chunk_off) / elem_size);
+	*nelems = XARR_MIN(xsl->len, (node->chunk_size - chunk_off) / elem_size);
 
 	(xsl->start) += *nelems;
 	(xsl->len)   -= *nelems;

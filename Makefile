@@ -9,7 +9,10 @@ SLA_MAX_LEVEL  ?= 5
 CILKDIR            = /usr/src/other/cilkplus.install
 #CILKDIR            = /usr/src/other/gcc-cilk.git/install
 
-CC                 = $(CILKDIR)/bin/gcc
+CC                  = $(CILKDIR)/bin/gcc
+CPP                 = $(CILKDIR)/bin/g++
+CILKCC              = $(CC)
+CILKCPP             = $(CPP)
 #CC                 = gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow
@@ -28,11 +31,11 @@ sla_objs           = xarray/sla-chunk.o
 verp_objs          = verp/verp.o verp/ver.o
 xvarray_objs_sla   = $(verp_objs) $(sla_objs)
 
-CILKCC             = $(CILKDIR)/bin/gcc
-CILKCPP            = $(CILKDIR)/bin/g++
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
-CILKLDFLAGS        = -lcilkrts -Xlinker -rpath=$(CILKDIR)/lib  $(LDFLAGS)
+CILKLDFLAGS        = -lcilkrts -Xlinker
+CILKLDFLAGS       += -rpath=$(CILKDIR)/lib
+CILKLDFLAGS       += $(LDFLAGS)
 
 ifeq (1,$(USE_TCMALLOC))
 	CFLAGS    += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -ltcmalloc

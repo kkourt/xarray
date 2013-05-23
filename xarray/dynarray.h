@@ -18,6 +18,7 @@ typedef struct dynarray dynarray_t;
 extern "C" {
 #endif
 
+// alloocate and initialize a da
 dynarray_t *dynarray_create(unsigned long elem_size,
                             unsigned long alloc_grain,
                             unsigned long elems_nr);
@@ -26,6 +27,7 @@ dynarray_t *dynarray_init_frombuff(unsigned long elem_size,
                                    void *elems, unsigned long elems_nr);
 void *dynarray_destroy(struct dynarray *da);
 
+// initialize a (already allocated) da
 void dynarray_init(dynarray_t *da,
                    unsigned long elem_size,
                    unsigned long alloc_grain,

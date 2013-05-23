@@ -6,7 +6,7 @@
 #include <assert.h>
 #include <string.h> // memcpy
 
-#define MIN(x,y) ((x<y) ? (x):(y))
+#define XARR_MIN(x,y) ((x<y) ? (x):(y))
 
 /* just to make the interface self-explanatory */
 struct xarray_s;
@@ -14,10 +14,11 @@ typedef struct xarray_s xarray_t;
 typedef void xelem_t;
 
 
+// implementation specific xarray initialization parameters
 struct xarray_init {
 	// @elem_size: size of elements
 	size_t elem_size;
-	struct {
+	union {
 		/* dynarray-specific parameters:
 		 *  @elems_alloc_grain: allocation grain in elements
 		 *  @elems_init: initial array size in elements
@@ -39,9 +40,19 @@ struct xarray_init {
 	};
 };
 
+// _create: allocate and initialize an xarray
+// _init:   initialize an already allocate xarray
+xarray_t *xarray_create(struct xarray_init *init);
+void      xarray_init(xarray_t *xarr, struct xarray_init *init);
+
+//  _size:      return the size of the array in elements
+//  _elem_size: return the element size of the array
+static size_t   xarray_size(xarray_t *xarr);
+static size_t   xarray_elem_size(xarray_t *xarr);
+
 /**
- * Indexes:
- * idx:
+ * xarray uses the following indexing scheme:
+ * index:
  *    0 : first
  *    1 : second
  *    ...
@@ -50,41 +61,7 @@ struct xarray_init {
  *
  */
 
-/*
- * concatenate two arrays
- *  return the concatenated array
- *   @arr1 and @arr2 become invalid
- */
-
-xarray_t *xarray_create(struct xarray_init *init);
-void      xarray_init(xarray_t *xarr, struct xarray_init *init);
-xarray_t *xarray_concat(xarray_t *arr1, xarray_t *arr2);
-void      xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2);
-
-static size_t   xarray_size(xarray_t *xarr);
-static size_t   xarray_elem_size(xarray_t *xarr);
-static xelem_t *xarray_get(xarray_t *xarr, long idx);
-// return a pointer to the @idx location of the array and the remaining number
-// of elements @nelems in the contiguous chunk.
-static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *nelems);
-static xelem_t *xarray_append(xarray_t *xarr);
-
-// @nelems in prepare is only an output variable
-static xelem_t *xarray_append_prepare(xarray_t *xarr, size_t *nelems);
-static void     xarray_append_finalize(xarray_t *xarr, size_t nelems);
-
-static xelem_t *xarray_pop(xarray_t *xarr, size_t elems);
-
-struct xslice_s;
-typedef struct xslice_s xslice_t;
-
-static void     xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl);
-static xelem_t *xslice_get(xslice_t *xslice, long idx);
-static xelem_t *xslice_getchunk(xslice_t *xslice, long idx, size_t *nelems);
-static xelem_t *xslice_getnextchunk(xslice_t *xslice, size_t *nelems);
-static size_t   xslice_size(xslice_t *xslice);
-static void     xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2);
-
+// find actual index based on the above scheme
 static inline long
 xarr_idx(xarray_t *xarr, long i)
 {
@@ -95,7 +72,65 @@ xarr_idx(xarray_t *xarr, long i)
 	return i;
 }
 
+// get element at index @idx (indices are in elements)
+static xelem_t *xarray_get(xarray_t *xarr, long idx);
+// return a pointer to on index @idx (in elements) and set @nelems to the
+// remaining number of elements in the returned contiguous chunk.
+static xelem_t *xarray_getchunk(xarray_t *xarr, long idx, size_t *nelems);
+
+/**
+ * To allow for in-place appends we break it in two steps:
+ *   - _prepare, where a buffer is returned
+ *      @nelems is an output-only variable set to the size of the buffer
+ *
+ *   ... user writes up to @nelems elements to the buffer ....
+ *
+ *   - _finalize, finalizes the append
+ *      @nelems is the number of elements actually written to the buffer
+ *
+ *  (also see xarray_append_elems, xarray_append_set below)
+ */
+static xelem_t *xarray_append_prepare(xarray_t *xarr, size_t *nelems);
+static void     xarray_append_finalize(xarray_t *xarr, size_t nelems);
+// append a single element -- returns a pointer to write the element
+static xelem_t *xarray_append(xarray_t *xarr);
+
+/**
+ * concatenate two arrays
+ *  return the concatenated array
+ *   @arr1 and @arr2 become invalid
+ */
+xarray_t *xarray_concat(xarray_t *arr1, xarray_t *arr2);
+
+/**
+ * split an array approximately in the middle
+ *  approximately -> within a constant (typically the allocation grain)
+ *   TODO (split in @idx)
+ */
+void      xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2);
+
+
+// TODO: fix interface -- allow elems to be IN/OUT variable
+static xelem_t *xarray_pop(xarray_t *xarr, size_t elems);
+
+/**
+ * Xarray slices
+ */
+struct xslice_s;
+typedef struct xslice_s xslice_t;
+
+static void     xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl);
+static xelem_t *xslice_get(xslice_t *xslice, long idx);
+static xelem_t *xslice_getchunk(xslice_t *xslice, long idx, size_t *nelems);
+static xelem_t *xslice_getnextchunk(xslice_t *xslice, size_t *nelems);
+static size_t   xslice_size(xslice_t *xslice);
+static void     xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2);
+
+/**
+ * xarray append helpers
+ */
 static inline void
+// helper to append @total_elems from @elems in @xarr
 xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
 {
 	size_t   nelems, elems_i, elem_size;
@@ -105,7 +140,7 @@ xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
 	elems_i   = 0;
 	while (total_elems > 0) {
 		dst = xarray_append_prepare(xarr, &nelems);
-		nelems = MIN(nelems, total_elems);
+		nelems = XARR_MIN(nelems, total_elems);
 		memcpy(dst, elems + elems_i, nelems*elem_size);
 		xarray_append_finalize(xarr, nelems);
 		elems_i     += nelems;
@@ -113,7 +148,7 @@ xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
 	}
 }
 
-// append @total_elems, and set to @c
+// helper append @total_elems that are set to @c
 static inline void
 xarray_append_set(xarray_t *xarr, char c, size_t total_elems)
 {
@@ -123,19 +158,27 @@ xarray_append_set(xarray_t *xarr, char c, size_t total_elems)
 	elem_size = xarray_elem_size(xarr);
 	while (total_elems > 0) {
 		dst = xarray_append_prepare(xarr, &nelems);
-		nelems = MIN(nelems, total_elems);
+		nelems = XARR_MIN(nelems, total_elems);
 		memset(dst, c, nelems*elem_size);
 		xarray_append_finalize(xarr, nelems);
 		total_elems -= nelems;
 	}
 }
 
+// include xarray implementation functions
 #if defined(XARRAY_DA__)
 #include "xarray_dynarray.h"
 #elif defined(XARRAY_SLA__)
 #include "xarray_sla.h"
 #endif
 
+/**
+ * If xarray implementations define their own slice functions, they should
+ * define XSLICE_.
+ *
+ * If XSLICE_ is not defined, then slices are implemented ontop of the xarray
+ * interface below.
+ */
 #ifndef XSLICE_
 #define XSLICE_
 struct xslice_s {
@@ -191,7 +234,7 @@ xslice_getchunk(xslice_t *xsl, long idx, size_t *chunk_elems)
 	if (idx < xsl->len) {
 		size_t cs;
 		ret = xarray_getchunk(xsl->xarr, xsl->idx + idx, &cs);
-		*chunk_elems = MIN(cs, xsl->len - idx);
+		*chunk_elems = XARR_MIN(cs, xsl->len - idx);
 	} else {
 		ret = NULL;
 		*chunk_elems = 0;

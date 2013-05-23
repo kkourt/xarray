@@ -12,6 +12,8 @@
 #define YES_CILK
 #endif
 
+#define MIN(x,y) ((x<y) ? (x):(y))
+
 #include "rle_rec_stats.h"
 DECLARE_RLE_STATS
 
