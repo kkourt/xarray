@@ -59,12 +59,17 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
-     floorplan/floorplan-serial floorplan/floorplan \
-     floorplan/floorplan_sla                        \
      sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
      sum/sum_xarray_da sum/sum_xarray_sla
 
      #xarray/xvarray-tests/branch_sla
+     #floorplan/floorplan-serial floorplan/floorplan
+     #floorplan/floorplan_sla
+
+# sla -> -DXARRAY_SLA__
+define XARR_CFLAGS
+-DXARRAY_$(shell echo $1 | tr a-z A-Z)__
+endef
 
 
 ## xarray
@@ -83,11 +88,8 @@ xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 sum/sum_omp: sum/sum_openmp.c $(hdrs)
 	$(CC) $(CFLAGS) $(LDFLAGS) -fopenmp $< -o $@
 
-sum/psum_xarray_da.o: sum/sum_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
-
-sum/psum_xarray_sla.o: sum/sum_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_SLA__ $< -o $@ -c
+sum/psum_xarray_%.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*)  $< -o $@ -c
 
 sum/psum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/psum_xarray_da.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
@@ -95,11 +97,8 @@ sum/psum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/psum_xarray_d
 sum/psum_xarray_sla: xarray/sla-chunk.o sum/psum_xarray_sla.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
-sum/sum_xarray_da.o: sum/sum_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
-
-sum/sum_xarray_sla.o: sum/sum_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
+sum/sum_xarray_%.o: sum/sum_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
 
 sum/sum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/sum_xarray_da.o
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
@@ -121,17 +120,11 @@ rle/prle_rec_xarray_da: xarray/xarray_dynarray.o rle/prle_rec_xarray_da.o xarray
 rle/rle_rec_xarray_da: xarray/xarray_dynarray.o rle/rle_rec_xarray_da.o xarray/dynarray.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
-rle/prle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_DA__ $< -o $@ -c
+rle/prle_rec_xarray_%.o: rle/rle_rec_xarray.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*) $< -o $@ -c
 
-rle/prle_rec_xarray_sla.o: rle/rle_rec_xarray.c $(hdrs)
-	$(CILKCC) $(CILKCCFLAGS) -DXARRAY_SLA__ $< -o $@ -c
-
-rle/rle_rec_xarray_da.o: rle/rle_rec_xarray.c $(hdrs)
-	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_DA__ $< -o $@ -c
-
-rle/rle_rec_xarray_sla.o: rle/rle_rec_xarray.c $(hdrs)
-	$(CC) $(CFLAGS) -DNO_CILK -DXARRAY_SLA__ $< -o $@ -c
+rle/rle_rec_xarray_%.o: rle/rle_rec_xarray.c $(hdrs)
+	$(CC) $(CFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
 
 rle/prle_rec_mpools: rle/rle_rec_mpools.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
