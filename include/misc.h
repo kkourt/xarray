@@ -141,4 +141,15 @@ ul_hstr(unsigned long ul)
 #define	likely(x)	__builtin_expect((x),1)
 #define unlikely(x)	__builtin_expect((x),0)
 
+#define MAX(x,y)        \
+({ __typeof__(x) x__ = (x); \
+   __typeof__(y) y__ = (y); \
+   x__ > y__ ? x__ : y__; })
+
+#define MIN(x,y)        \
+({ __typeof__(x) x__ = (x); \
+   __typeof__(y) y__ = (y); \
+   x__ < y__ ? x__ : y__; })
+
+
 #endif /* MISC_H__ */

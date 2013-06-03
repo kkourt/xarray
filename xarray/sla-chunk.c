@@ -26,8 +26,8 @@
  * http://algolist.ru/ds/skiplist.c
  */
 
-#define MAX(x,y) (x > y ? x : y)
-#define MIN(x,y) (x < y ? x : y)
+//#define MAX(x,y) (x > y ? x : y)
+//#define MIN(x,y) (x < y ? x : y)
 
 /* randf(): return a random float number in [0,1] */
 static inline float
@@ -619,10 +619,9 @@ sla_pop_tail(sla_t *sla)
 	return n;
 }
 
-char *
+void
 sla_pop_tailnode(sla_t *sla, size_t *len)
 {
-	char *ret;
 	sla_node_t *n = SLA_TAIL_NODE(sla, 0);
 	size_t nlen = SLA_NODE_NITEMS(n);
 	assert(nlen > 0);
@@ -631,8 +630,8 @@ sla_pop_tailnode(sla_t *sla, size_t *len)
 		sla_pop_tail(sla);
 		assert(n->chunk_size >= nlen);
 		*len = nlen;
+		sla_chunk_free(n->chunk);
 		sla_node_free(n);
-		ret = n->chunk;
 	} else {
 		// just update counters
 		for (unsigned i=0; i<sla->cur_level; i++) {
@@ -642,11 +641,8 @@ sla_pop_tailnode(sla_t *sla, size_t *len)
 			} else
 				SLA_TAIL_CNT(sla, i) -= *len;
 		}
-		ret = n->chunk + (nlen - *len);
 		sla->total_size -= *len;
 	}
-
-	return ret;
 }
 
 /**

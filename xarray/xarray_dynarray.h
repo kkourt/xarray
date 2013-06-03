@@ -41,22 +41,17 @@ xarray_getlast(xarray_t *xarr)
 static inline xelem_t *
 xarray_get(xarray_t *xarr, long i)
 {
-	size_t da_size = dynarray_size(&xarr->da);
-	if (i < 0)
-		i = da_size + i;
-	assert(i >= 0 && i < da_size);
-	return dynarray_get(&xarr->da, i);
+	size_t idx = xarr_idx(xarr, i);
+	return dynarray_get(&xarr->da, idx);
 }
 
 static inline xelem_t *
 xarray_getchunk(xarray_t *xarr, long i, size_t *nelems)
 {
 	size_t da_size = dynarray_size(&xarr->da);
-	if (i < 0)
-		i = da_size + i;
-	assert(i >= 0 && i < da_size);
-	*nelems = da_size - i;
-	return dynarray_get(&xarr->da, i);
+	size_t idx = xarr_idx(xarr, i);
+	*nelems = da_size - idx;
+	return dynarray_get(&xarr->da, idx);
 }
 
 static inline xelem_t *
@@ -89,12 +84,10 @@ xarray_append_finalize(xarray_t *xarr, size_t nelems)
 	da->next_idx += nelems;
 }
 
-static inline xelem_t *
+static inline void
 xarray_pop(xarray_t *xarr, size_t elems)
 {
-	xelem_t *ret = xarray_get(xarr, -elems);
 	dynarray_dealloc_nr(&xarr->da, elems);
-	return ret;
 }
 
 #endif

@@ -232,16 +232,21 @@ xarray_append_finalize(xarray_t *xarr, size_t nelems)
 	xarray_verify(xarr);
 }
 
-// XXX: @elems not used -- wrong interface
-static inline xelem_t *
+static inline void
 xarray_pop(xarray_t *xarr, size_t elems)
 {
-	size_t elem_size = xarr->elem_size;
-	xelem_t *ret = sla_pop_tailnode(&xarr->sla, &elem_size);
-	assert(elem_size == xarr->elem_size);
-	xarr->elems_nr--;
+	const size_t elem_size = xarr->elem_size;
+	size_t pop_len = elems*elem_size;
+
+	do {
+		size_t cnt = pop_len;
+		sla_pop_tailnode(&xarr->sla, &cnt);
+		assert(pop_len >= cnt);
+		pop_len -= cnt;
+	} while (pop_len > 0);
+
+	xarr->elems_nr -= elems;
 	xarray_verify(xarr);
-	return ret;
 }
 
 // let xarray.h know that we are implementing our own slices

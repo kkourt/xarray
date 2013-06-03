@@ -110,8 +110,26 @@ xarray_t *xarray_concat(xarray_t *arr1, xarray_t *arr2);
 void      xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2);
 
 
-// TODO: fix interface -- allow elems to be IN/OUT variable
-static xelem_t *xarray_pop(xarray_t *xarr, size_t elems);
+/**
+ * pop @nelems elements from array -- i.e., reduce its size by discarding
+ * elements from the end.
+ *
+ * Concerns about _pop() interface:
+ * - returning an in-place buffer with the elements is not straightforward
+ *   because the caller will then become responsible for deallocating the
+ *   buffer. Since this will not happen on all calls there will need to be a
+ *   flag to notify the caller on when it needs to deallocate the pointer it
+ *   got. This seems too complicated, so we don't do it.
+ *
+ * - On structured implementations, there is the question of what happens when
+ *   the user tries to pop more than the internal chunk of the tail node. Either
+ *   the function loops over and deallocates multiple nodes or returns to the
+ *   user the number of elements it actually popped. If we returned the popped
+ *   buffer, the latter method would be the sensible thing to do. Since we
+ *   don't, we follow the former approach -- the implementation should loop over
+ *   multiple nodes if needed.
+ */
+static void xarray_pop(xarray_t *xarr, size_t nelems);
 
 /**
  * Xarray slices

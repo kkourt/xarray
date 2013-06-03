@@ -222,9 +222,8 @@ sla_tailnode_full(sla_t *sla)
  * pop data from the tail node
  *  @len initially contas the user-requested @len to be popped
  *  @len finally contains the size actual popped
- * returns a pointer to data popped
  */
-char *sla_pop_tailnode(sla_t *sla, size_t *len);
+void sla_pop_tailnode(sla_t *sla, size_t *len);
 
 void sla_print_chars(sla_t *sla);
 
