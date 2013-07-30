@@ -83,21 +83,21 @@ xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h $(hdrs)
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
 
-xarray/xarr_da.o: xarray/xarray_dynarray.o xarray/dynarray.o
+xarray/xarray_da.o: xarray/xarray_dynarray.o xarray/dynarray.o
 	$(LD) -i $^ -o $@
 
 # sla
 xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h $(hdrs)
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
-xarray/xarr_sla.o: xarray/sla-chunk.o
+xarray/xarray_sla.o: xarray/sla-chunk.o
 	$(LD) -i $^ -o $@
 
 # rpa
 xarray/rope_array.o: xarray/rope_array.c xarray/rope_array.h
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
-xarray/xarr_rpa.o: xarray/rope_array.o
+xarray/xarray_rpa.o: xarray/rope_array.o
 	$(LD) -i $^ -o $@
 ## SUM
 
@@ -109,14 +109,14 @@ sum/sum_omp: sum/sum_openmp.c $(hdrs)
 sum/psum_xarray_%.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*)  $< -o $@ -c
 
-sum/psum_xarray_%: sum/psum_xarray_%.o xarray/xarr_%.o
+sum/psum_xarray_%: sum/psum_xarray_%.o xarray/xarray_%.o
 	$(CILKCC) $(CILKLDFLAGS) $^ -o $@
 
 # serial version
 sum/sum_xarray_%.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
 
-sum/sum_xarray_%: sum/sum_xarray_%.o xarray/xarr_%.o
+sum/sum_xarray_%: sum/sum_xarray_%.o xarray/xarray_%.o
 	$(CILKCC) $(CILKLDFLAGS) $^ -o $@
 
 ## RLE
