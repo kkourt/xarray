@@ -39,6 +39,9 @@ create_xarr_int(void)
 			.p                =  sla_p,
 			.max_level        =  sla_max_level,
 			.elems_chunk_size =  xarr_grain,
+		},
+		.rpa = {
+			.elems_alloc_grain = xarr_grain,
 		}
 	});
 	assert(xarray_elem_size(ret) == sizeof(int));

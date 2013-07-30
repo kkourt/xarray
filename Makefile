@@ -61,7 +61,7 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
-     sum/sum_xarray_da sum/sum_xarray_sla
+     sum/sum_xarray_da sum/sum_xarray_sla sum/sum_xarray_rpa
 
      #xarray/xvarray-tests/branch_sla
      #floorplan/floorplan-serial floorplan/floorplan

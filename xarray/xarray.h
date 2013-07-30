@@ -195,6 +195,8 @@ xarray_append_set(xarray_t *xarr, char c, size_t total_elems)
 #include "xarray_dynarray.h"
 #elif defined(XARRAY_SLA__)
 #include "xarray_sla.h"
+#elif defined(XARRAY_RPA__)
+#include "xarray_rpa.h"
 #endif
 
 /**
