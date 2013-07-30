@@ -12,7 +12,7 @@ void do_test(unsigned int cnt, unsigned int grain, bool bal)
 		long *x = rpa_append(rpa);
 		*x = (long)i;
 	}
-	rpa_check(rpa);
+	rpa_verify(rpa);
 
 	printf(" Testing GET\n");
 	for (unsigned int i=0; i<cnt; i++) {
@@ -44,7 +44,7 @@ void do_test(unsigned int cnt, unsigned int grain, bool bal)
 		//printf("popping %u\n", i);
 		rpa_pop(rpa, &pop);
 		assert(pop == 1);
-		rpa_check(rpa);
+		rpa_verify(rpa);
 		//printf("popped %u\n", i);
 		for (unsigned int j=0; j<cnt-i-1; j++) {
 			//printf("  trying to get %d\n", j);

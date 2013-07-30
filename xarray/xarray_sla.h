@@ -37,7 +37,9 @@ xarray_verify(xarray_t *xarr)
 {
 	assert(xarr->sla.total_size % xarr->elem_size == 0);
 	assert(xarr->sla.total_size / xarr->elem_size == xarr->elems_nr);
+	#if !defined(NDEBUG)
 	sla_verify(&xarr->sla);
+	#endif
 }
 
 void

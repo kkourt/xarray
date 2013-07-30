@@ -18,7 +18,7 @@ typedef void xelem_t;
 struct xarray_init {
 	// @elem_size: size of elements
 	size_t elem_size;
-	union {
+	struct {
 		/* dynarray-specific parameters:
 		 *  @elems_alloc_grain: allocation grain in elements
 		 *  @elems_init: initial array size in elements
@@ -37,6 +37,13 @@ struct xarray_init {
 			unsigned max_level;
 			size_t elems_chunk_size;
 		} sla;
+		 /* rpa-specific parametrs:
+		     @elems_alloc_grain: allocation grain in elements
+		  */
+		struct {
+			size_t elems_alloc_grain;
+		} rpa;
+
 	};
 };
 

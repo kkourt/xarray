@@ -13,6 +13,7 @@ CC                  = $(CILKDIR)/bin/gcc
 CPP                 = $(CILKDIR)/bin/g++
 CILKCC              = $(CC)
 CILKCPP             = $(CPP)
+LD                  = ld
 #CC                 = gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow
@@ -67,44 +68,56 @@ all: rle/rle_rec rle/prle_rec                       \
      #floorplan/floorplan_sla
 
 # sla -> -DXARRAY_SLA__
+# da  -> -DXARRAY_DA__
+# ... -> ...
 define XARR_CFLAGS
 -DXARRAY_$(shell echo $1 | tr a-z A-Z)__
 endef
 
-
 ## xarray
 
+# da
 xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h $(hdrs)
-	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
-
-xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h $(hdrs)
 	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
 
 xarray/xarray_dynarray.o: xarray/xarray_dynarray.c $(hdrs)
 	$(CC) $(CFLAGS) $< -o $@ -c
 
+xarray/xarr_da.o: xarray/xarray_dynarray.o xarray/dynarray.o
+	$(LD) -i $^ -o $@
+
+# sla
+xarray/sla-chunk.o: xarray/sla-chunk.c xarray/sla-chunk.h $(hdrs)
+	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
+
+xarray/xarr_sla.o: xarray/sla-chunk.o
+	$(LD) -i $^ -o $@
+
+# rpa
+xarray/rope_array.o: xarray/rope_array.c xarray/rope_array.h
+	$(CC) $(CFLAGS) -std=gnu99 $< -o $@ -c
+
+xarray/xarr_rpa.o: xarray/rope_array.o
+	$(LD) -i $^ -o $@
 ## SUM
 
+# openMP version
 sum/sum_omp: sum/sum_openmp.c $(hdrs)
 	$(CC) $(CFLAGS) $(LDFLAGS) -fopenmp $< -o $@
 
+# parallel version
 sum/psum_xarray_%.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*)  $< -o $@ -c
 
-sum/psum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/psum_xarray_da.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+sum/psum_xarray_%: sum/psum_xarray_%.o xarray/xarr_%.o
+	$(CILKCC) $(CILKLDFLAGS) $^ -o $@
 
-sum/psum_xarray_sla: xarray/sla-chunk.o sum/psum_xarray_sla.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
-
+# serial version
 sum/sum_xarray_%.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
 
-sum/sum_xarray_da: xarray/xarray_dynarray.o xarray/dynarray.o sum/sum_xarray_da.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
-
-sum/sum_xarray_sla: xarray/sla-chunk.o sum/sum_xarray_sla.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+sum/sum_xarray_%: sum/sum_xarray_%.o xarray/xarr_%.o
+	$(CILKCC) $(CILKLDFLAGS) $^ -o $@
 
 ## RLE
 

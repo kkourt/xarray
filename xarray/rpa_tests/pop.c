@@ -31,14 +31,14 @@ int main(int argc, const char *argv[])
 	rpa->root = &n1->n_hdr;
 
 	rpa_print(rpa);
-	rpa_check(rpa);
+	rpa_verify(rpa);
 
 	size_t nelems = 1;
 	rpa_pop(rpa, &nelems);
 	assert(nelems == 1);
 
 	rpa_print(rpa);
-	rpa_check(rpa);
+	rpa_verify(rpa);
 
 	return 0;
 }
