@@ -39,6 +39,7 @@ int main(int argc, const char *argv[])
 
 	rpa_print(rpa);
 	rpa_verify(rpa);
+	printf("OK\n");
 
 	return 0;
 }

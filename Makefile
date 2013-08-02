@@ -11,13 +11,13 @@ CILKDIR            = /usr/src/other/cilkplus.install
 
 CC                  = $(CILKDIR)/bin/gcc
 CPP                 = $(CILKDIR)/bin/g++
-CILKCC              = $(CC)
-CILKCPP             = $(CPP)
+CILKCC              = $(CILKDIR)/bin/gcc
+CILKCPP             = $(CILKDIR)/bin/g++
 LD                  = ld
 #CC                 = gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow
-OPTFLAGS            = -O2
+OPTFLAGS            = -O3
 CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE -DSLA_MAX_LEVEL=$(SLA_MAX_LEVEL)
 CXXFLAGS            = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
 ifeq (0, $(DEBUG_BUILD))

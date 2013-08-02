@@ -26,6 +26,39 @@ static unsigned long sla_max_level   = 5;
 static float         sla_p = 0.5;
 
 
+static void
+set_params(void)
+{
+	long x;
+	char *x_str;
+
+	#define set_paraml(env_str, param) \
+	do { \
+		if ( (x_str = getenv(env_str)) != NULL) { \
+			x = atol(x_str); \
+			if (x != 0) \
+				param = x; \
+		} \
+	} while (0)
+
+	#define set_paramf(env_str, param) \
+	do { \
+		if ( (x_str = getenv(env_str)) != NULL) { \
+			x = atof(x_str); \
+			if (x != 0) \
+				param = x; \
+		} \
+	} while (0)
+
+	set_paraml("SUM_REC_LIMIT",   sum_rec_limit);
+	set_paraml("XARR_GRAIN",      xarr_grain);
+	set_paraml("SLA_MAX_LEVEL",   sla_max_level);
+	set_paramf("SLA_P",           sla_p);
+
+	#undef set_paraml
+	#undef set_paramf
+}
+
 static xarray_t *
 create_xarr_int(void)
 {
@@ -66,40 +99,6 @@ xarr_int_mkrand(xarray_t *xarr, size_t nints)
 	}
 
 	return ret;
-}
-
-static void
-set_params(void)
-{
-	long x;
-	char *x_str;
-
-	#define set_paraml(env_str, param) \
-	do { \
-		if ( (x_str = getenv(env_str)) != NULL) { \
-			x = atol(x_str); \
-			if (x != 0) \
-				param = x; \
-		} \
-	} while (0)
-
-	#define set_paramf(env_str, param) \
-	do { \
-		if ( (x_str = getenv(env_str)) != NULL) { \
-			x = atof(x_str); \
-			if (x != 0) \
-				param = x; \
-		} \
-	} while (0)
-
-	set_paraml("SUM_REC_LIMIT",   sum_rec_limit);
-	set_paraml("XARR_GRAIN",      xarr_grain);
-	set_paraml("SLA_MAX_LEVEL",   sla_max_level);
-	set_paramf("SLA_P",           sla_p);
-
-	#undef set_paraml
-	#undef set_paramf
-
 }
 
 int

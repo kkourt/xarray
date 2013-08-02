@@ -3,15 +3,6 @@
 #include <time.h>
 #include <assert.h>
 
-#ifdef NO_CILK
-#define cilk_spawn
-#define cilk_sync
-#else
-#include <cilk/cilk.h>
-#include <cilk/cilk_api.h>
-#define YES_CILK
-#endif
-
 #include <omp.h>
 
 #include "sum_op.h"
