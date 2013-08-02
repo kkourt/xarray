@@ -124,4 +124,117 @@ xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2)
 	assert(false);
 }
 
+
+/**
+ * Slices
+ */
+
+// let xarray.h know that we are implementing our own slices
+#define XSLICE_
+
+/**
+ * @start: start of the slice in the array
+ * @len: length of the slice
+ * @xarr: original xarray
+ *
+ * All fields (@start, @len, @leaf_off) are in elements
+ */
+struct xslice_s {
+	xarray_t *xarr;
+	size_t start, len;
+	struct rpa_ptr sl_ptr;
+};
+
+static inline size_t
+xslice_size(xslice_t *xslice)
+{
+	return xslice->len;
+}
+
+static inline long
+xsl_idx(xslice_t *xsl, long i)
+{
+	size_t xsl_size = xsl->len;
+	if (i < 0)
+		i = xsl_size + i;
+	return i;
+}
+
+static inline void
+xslice_init(xarray_t *xarr, size_t idx, size_t len, xslice_t *xsl)
+{
+	idx = xarr_idx(xarr, idx);
+	assert(idx + len <= xarray_size(xarr));
+
+	xsl->xarr = xarr;
+	xsl->start = idx;
+	xsl->len = len;
+	rpa_initptr(&xsl->xarr->rpa, idx, &xsl->sl_ptr);
+}
+
+static inline xelem_t *
+xslice_getchunk(xslice_t *xsl, long idx, size_t *chunk_elems)
+{
+	struct rpa_ptr chunk_ptr;
+
+	idx = xsl_idx(xsl, idx);
+	rpa_ptr_initptr(&xsl->sl_ptr, idx, &chunk_ptr);
+
+	*chunk_elems = rpa_ptr_leaf_nelems(&xsl->sl_ptr);
+	return rpa_ptr_leaf_data(&xsl->xarr->rpa, &chunk_ptr);
+}
+
+
+static inline xelem_t *
+xslice_get(xslice_t *xsl, long idx)
+{
+	size_t dummy;
+	return xslice_getchunk(xsl, idx, &dummy);
+}
+
+static inline xelem_t *
+xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
+{
+	if (xsl->len == 0) {
+		*nelems = 0;
+		return NULL;
+	}
+
+	*nelems = MIN(xsl->len, rpa_ptr_leaf_nelems(&xsl->sl_ptr));
+	//printf("%s: nelems=%zd len:%zd\n", __FUNCTION__, *nelems, xsl->len);
+	assert(*nelems > 0);
+	xelem_t *ret = rpa_ptr_leaf_data(&xsl->xarr->rpa, &xsl->sl_ptr);
+
+	xsl->start += *nelems;
+	xsl->len -= *nelems;
+	rpa_ptr_next(&xsl->sl_ptr);
+
+	return ret;
+}
+
+/*
+static inline xelem_t *
+xslice_getnext(xslice_t *xsl)
+{
+}
+*/
+
+static inline void
+xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2)
+{
+	size_t l1 = xsl->len / 2;
+	size_t l2 = xsl->len - l1;
+
+	xsl1->start = xsl->start;
+	xsl1->len = l1;
+
+	xsl2->start = xsl->start + l1;
+	xsl2->len = l2;
+
+	xsl1->sl_ptr = xsl->sl_ptr;
+	rpa_ptr_initptr(&xsl->sl_ptr, l1, &xsl2->sl_ptr);
+
+	xsl1->xarr = xsl2->xarr = xsl->xarr;
+}
+
 #endif /* XARRAY_RPA_H__ */

@@ -171,6 +171,7 @@ void        rpa_init(struct rpa *rpa, size_t elem_size, size_t alloc_grain);
 void rpa_print(struct rpa *rpa);
 
 void *rpa_getchunk(struct rpa *rpa, size_t elem_idx, size_t *ch_elems);
+struct rpa_leaf *rpa_getleaf(struct rpa_hdr *hdr, size_t eidx, size_t *eoff);
 
 void *rpa_append_prepare(struct rpa *rpa, size_t *nelems);
 void  rpa_append_finalize(struct rpa *rpa, size_t nelems);
@@ -220,5 +221,125 @@ rpa_get(struct rpa *rpa, size_t elem_idx)
 	return rpa_getchunk(rpa, elem_idx, NULL);
 }
 
+
+/**
+ * rpa pointers
+ */
+
+struct rpa_ptr {
+	struct rpa_leaf *leaf;
+	size_t leaf_off; // in elements
+};
+
+static inline void *
+rpa_ptr_leaf_data(struct rpa *rpa, struct rpa_ptr *ptr)
+{
+	size_t elem_size = rpa->elem_size;
+	return &ptr->leaf->data[ptr->leaf_off*elem_size];
+}
+
+static inline size_t
+rpa_ptr_leaf_nelems(struct rpa_ptr *ptr)
+{
+	assert(ptr->leaf->l_hdr.nelems > ptr->leaf_off);
+	return ptr->leaf->l_hdr.nelems - ptr->leaf_off;
+}
+
+static inline void
+rpa_initptr(struct rpa *rpa, size_t idx, struct rpa_ptr *ptr)
+{
+	ptr->leaf = rpa_getleaf(rpa->root, idx, &ptr->leaf_off);
+}
+
+
+// set a new ptr @new_ptr at distance @idx from @ptr
+static inline void
+rpa_ptr_initptr(struct rpa_ptr const *ptr, size_t idx, struct rpa_ptr *new_ptr)
+{
+	//printf("----> %s ENTER\n", __FUNCTION__);
+	// each node has a range
+	//   For leafs it's their size
+	//   As we go upwards, the range increases
+	//   If we reach root, it's the array size
+	// @leaf_off is the offset of the slice within that range
+	size_t leaf_elems = ptr->leaf->l_hdr.nelems;
+	size_t leaf_off  = ptr->leaf_off;
+	assert(leaf_elems > ptr->leaf_off);
+
+	// check if @idx is inside the current leaf first
+	// (silly microoptimization)
+	if (leaf_off + idx < leaf_elems) {
+		new_ptr->leaf = ptr->leaf;
+		new_ptr->leaf_off = leaf_off + idx;
+		return;
+	}
+
+	// @idx is not inside the current leaf.
+	// We first move up to the node that includes the desired index
+	// We are looking for @idx + @leaf_off
+	struct rpa_hdr *hdr = &ptr->leaf->l_hdr;
+	for (;;) {
+		struct rpa_node *parent = hdr->parent;
+		assert(hdr->parent != NULL);
+		assert(parent->n_hdr.nelems > hdr->nelems);
+
+		size_t node_range = parent->n_hdr.nelems;
+
+		bool right_child = (hdr == parent->right);
+		assert(right_child || hdr == parent->left);
+
+		hdr = &parent->n_hdr;
+
+		if (right_child) {
+			// @hdr was the right child:
+			//  - update @leaf_off
+			leaf_off += parent->left->nelems;
+			//  - we need to continue going up
+		} else {
+			// @hdr was the left child
+			// check if the node includes @idx
+			if (idx + leaf_off < node_range) {
+				break;
+			}
+		}
+
+	}
+
+	// Now that we have a node, we need to descend to find the leaf
+	new_ptr->leaf = rpa_getleaf(hdr, leaf_off + idx, &new_ptr->leaf_off);
+	//printf("----> %s EXIT\n", __FUNCTION__);
+}
+
+static inline void
+rpa_ptr_next(struct rpa_ptr *ptr)
+{
+	// go up until we reach a node from his left branch
+	// then, put the node in its right branch in @next
+	struct rpa_hdr *next;
+	struct rpa_hdr *hdr = &ptr->leaf->l_hdr;
+	for (;;) {
+
+		// reached top, poison ptr
+		if (hdr->parent == NULL) {
+			ptr->leaf = (void *)0xffdeadffdead;
+			ptr->leaf_off = -1;
+			return;
+		}
+
+		if (hdr->parent->left == hdr) {
+			next = hdr->parent->right;
+			break;
+		}
+		assert(hdr->parent->right == hdr);
+		hdr = &hdr->parent->n_hdr;
+	}
+
+	// then find @next's leftmost leaf
+	while (next->type == RPA_NODE)
+		next = rpa_hdr2node(next)->left;
+
+	ptr->leaf = rpa_hdr2leaf(next);
+	ptr->leaf_off = 0;
+}
 
 #endif /* ROPE_ARRAY_H__ */

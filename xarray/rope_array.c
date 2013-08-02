@@ -180,15 +180,18 @@ rpa_depth_rec(struct rpa_hdr *hdr)
 	return ret;
 }
 
-void *
-rpa_getchunk(struct rpa *rpa, size_t elem_idx, size_t *ch_elems)
+/**
+ * get the leaf for index @elem_idx
+ *  @elem_off: the offset of @elem_idx inside the leaf
+ */
+struct rpa_leaf *
+rpa_getleaf(struct rpa_hdr *hdr, size_t elem_idx, size_t *elem_off)
 {
-	struct rpa_hdr *hdr = rpa->root;
 	size_t eidx = elem_idx;
 	for (;;) {
-		//printf("     eidx=%zd nelems:%zd\n", eidx, hdr->nelems);
-		assert(eidx < hdr->nelems);
+		//printf("  %s   eidx=%zd nelems:%zd\n", __FUNCTION__, eidx, hdr->nelems);
 		if (hdr->type == RPA_LEAF) {
+			assert(eidx < hdr->nelems);
 			break;
 		}
 
@@ -204,10 +207,22 @@ rpa_getchunk(struct rpa *rpa, size_t elem_idx, size_t *ch_elems)
 
 	// got a leaf
 	assert(hdr->nelems > eidx);
+	*elem_off = eidx;
+
+	return rpa_hdr2leaf(hdr);
+}
+
+void *
+rpa_getchunk(struct rpa *rpa, size_t elem_idx, size_t *ch_elems)
+{
+	struct rpa_leaf *leaf;
+	size_t off;
+
+	leaf = rpa_getleaf(rpa->root, elem_idx, &off);
 	if (ch_elems)
-		*ch_elems = hdr->nelems - eidx;
-	size_t data_off = eidx * rpa->elem_size;
-	return &rpa_hdr2leaf(hdr)->data[data_off];
+		*ch_elems = leaf->l_hdr.nelems - off;
+
+	return &leaf->data[off*rpa->elem_size];
 }
 
 static void
@@ -471,7 +486,6 @@ rpa_verify(struct rpa *rpa)
 	do_rpa_verify(rpa->root);
 	#endif
 }
-
 
 // concatenate rpa2 to rpa1, return result
 struct rpa *

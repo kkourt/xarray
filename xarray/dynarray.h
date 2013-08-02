@@ -11,6 +11,8 @@
 #ifndef DYNARRAY_H__
 #define DYNARRAY_H__
 
+#include <stdlib.h> //realloc
+
 struct dynarray;
 typedef struct dynarray dynarray_t;
 

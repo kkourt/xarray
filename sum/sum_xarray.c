@@ -91,12 +91,21 @@ xarr_int_mkrand(xarray_t *xarr, size_t nints)
 	assert(xarray_size(xarr) == 0);
 	size_t ret = 0;
 
+	#if 0
+	for (size_t i=0; i<nints; i++) {
+		int *x_ptr;
+		x_ptr   = xarray_append(xarr);
+		*x_ptr  = (int)i;
+		ret   += sum_op(*x_ptr);
+	}
+	#else
 	for (size_t i=0; i<nints; i++) {
 		int *x_ptr;
 		x_ptr   = xarray_append(xarr);
 		*x_ptr  = rand() % 100;
 		ret   += sum_op(*x_ptr);
 	}
+	#endif
 
 	return ret;
 }
@@ -114,6 +123,7 @@ sum_seq(xslice_t *ints)
 		if (ch_len == 0)
 			break;
 
+		//printf("SUMMING from %d to %d\n", ch[0], ch[ch_len-1]);
 		for (size_t i=0; i<ch_len; i++)
 			ret += sum_op(ch[i]);
 	}
@@ -136,6 +146,7 @@ sum_rec(xslice_t *ints)
         #endif
 	mysum_stats_set(myid);
 
+	//printf("SIZE=%zd\n", xslice_size(ints));
 	/* unitary solution */
 	if (xslice_size(ints) <= sum_rec_limit) {
 		return sum_seq(ints);
@@ -195,8 +206,9 @@ main(int argc, const char *argv[])
 	sum1 = xarr_int_mkrand(ints, nints);
 
 	sum_stats_init(nthreads);
-	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
 
+	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
+	//printf("DOING SUM\n");
 	TSC_MEASURE_TICKS(xticks, {
 		sum2 = cilk_spawn sum_rec(&ints_sl);
 		cilk_sync;
@@ -206,7 +218,7 @@ main(int argc, const char *argv[])
 	sum_stats_report(nthreads, xticks);
 
 	if (sum1 != sum2) {
-		fprintf(stderr, "Error in sum: %d vs %d\n", sum1, sum2);
+		fprintf(stderr, "Error in sum: correct=%d vs xarray=%d\n", sum1, sum2);
 		abort();
 	}
 

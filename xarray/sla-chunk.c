@@ -896,11 +896,11 @@ sla_ptr_equal(sla_fwrd_t ptr1[], sla_fwrd_t ptr2[], unsigned cur_level)
 {
 	for (unsigned i=0; i<cur_level; i++) {
 		if (ptr1[i].node != ptr2[i].node) {
-			printf("ptr1[%u].node=%p =/= %p=ptr2[%u].node\n", i, ptr1[i].node, ptr2[i].node, i);
+			//printf("ptr1[%u].node=%p =/= %p=ptr2[%u].node\n", i, ptr1[i].node, ptr2[i].node, i);
 			return -1;
 		}
 		if (ptr1[i].cnt != ptr2[i].cnt) {
-			printf("ptr1[%u].cnt=%u =/= %u=ptr2[%u].cnt\n", i, ptr1[i].cnt, ptr2[i].cnt, i);
+			//printf("ptr1[%u].cnt=%u =/= %u=ptr2[%u].cnt\n", i, ptr1[i].cnt, ptr2[i].cnt, i);
 			return -1;
 		}
 	}
