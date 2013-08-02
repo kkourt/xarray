@@ -196,8 +196,8 @@ rpa_append(struct rpa *rpa)
 
 	size_t n = 1;
 	ret = rpa_append_prepare(rpa, &n);
-	assert(n == 1);
-	rpa_append_finalize(rpa, n);
+	assert(n >= 1);
+	rpa_append_finalize(rpa, 1);
 
 	return ret;
 }
@@ -220,7 +220,6 @@ rpa_get(struct rpa *rpa, size_t elem_idx)
 {
 	return rpa_getchunk(rpa, elem_idx, NULL);
 }
-
 
 /**
  * rpa pointers
@@ -310,8 +309,9 @@ rpa_ptr_initptr(struct rpa_ptr const *ptr, size_t idx, struct rpa_ptr *new_ptr)
 	//printf("----> %s EXIT\n", __FUNCTION__);
 }
 
+// move pointer to the next leaf
 static inline void
-rpa_ptr_next(struct rpa_ptr *ptr)
+rpa_ptr_next_leaf(struct rpa_ptr *ptr)
 {
 	// go up until we reach a node from his left branch
 	// then, put the node in its right branch in @next
@@ -340,6 +340,22 @@ rpa_ptr_next(struct rpa_ptr *ptr)
 
 	ptr->leaf = rpa_hdr2leaf(next);
 	ptr->leaf_off = 0;
+}
+
+// move the pointer @nelems
+//  the pointer will be moved no more than the remaining elemens in the leaf
+//  @nelems contains the number of elements the pointer was moved
+static inline void
+rpa_ptr_next_elems(struct rpa_ptr *ptr, size_t *nelems)
+{
+	size_t leaf_nelems = rpa_ptr_leaf_nelems(ptr);
+
+	if (leaf_nelems > *nelems) {
+		ptr->leaf_off += *nelems;
+	} else {
+		*nelems = leaf_nelems;
+		rpa_ptr_next_leaf(ptr);
+	}
 }
 
 #endif /* ROPE_ARRAY_H__ */

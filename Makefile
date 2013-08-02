@@ -57,8 +57,9 @@ hdrs +=$(wildcard floorplan/*.h)
 
 all: rle/rle_rec rle/prle_rec                       \
      rle/rle_rec_mpools rle/prle_rec_mpools         \
-     rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
+     rle/prle_rec_xarray_da rle/rle_rec_xarray_da  \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
+     rle/prle_rec_xarray_rpa rle/rle_rec_xarray_rpa \
      sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
      sum/sum_xarray_da sum/sum_xarray_sla sum/sum_xarray_rpa \
      xarray/tests/slice_rpa xarray/tests/slice_sla xarray/tests/slice_da
@@ -75,6 +76,7 @@ define XARR_CFLAGS
 endef
 
 ## xarray
+# -----------------------------------------------------------------------------
 
 # da
 xarray/dynarray.o: xarray/dynarray.c xarray/dynarray.h $(hdrs)
@@ -101,11 +103,13 @@ xarray/xarray_rpa.o: xarray/rope_array.o
 	$(LD) -i $^ -o $@
 
 ## Tests
+# -----------------------------------------------------------------------------
 
 xarray/tests/slice_%: xarray/xarray_%.o xarray/tests/slice.c $(hdrs)
 	$(CC) $(CFLAGS) $(call XARR_CFLAGS,$*) $(LDFLAGS) $< xarray/tests/slice.c -o $@
 
 ## SUM
+# -----------------------------------------------------------------------------
 
 # openMP version
 sum/sum_omp: sum/sum_openmp.c $(hdrs)
@@ -126,24 +130,19 @@ sum/sum_xarray_%: sum/sum_xarray_%.o xarray/xarray_%.o
 	$(CILKCC) $(CILKLDFLAGS) $^ -o $@
 
 ## RLE
+# -----------------------------------------------------------------------------
 
-rle/prle_rec_xarray_sla: rle/prle_rec_xarray_sla.o xarray/sla-chunk.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
+rle/rle_rec_xarray_%.o: rle/rle_rec_xarray.c $(hdrs)
+	$(CC) $(CFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
 
-rle/rle_rec_xarray_sla: rle/rle_rec_xarray_sla.o xarray/sla-chunk.o
-	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
-
-rle/prle_rec_xarray_da: xarray/xarray_dynarray.o rle/prle_rec_xarray_da.o xarray/dynarray.o
-	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
-
-rle/rle_rec_xarray_da: xarray/xarray_dynarray.o rle/rle_rec_xarray_da.o xarray/dynarray.o
+rle/rle_rec_xarray_%: rle/rle_rec_xarray_%.o xarray/xarray_%.o
 	$(CC) $(LDFLAGS) $(CFLAGS) $^ -o $@
 
 rle/prle_rec_xarray_%.o: rle/rle_rec_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*) $< -o $@ -c
 
-rle/rle_rec_xarray_%.o: rle/rle_rec_xarray.c $(hdrs)
-	$(CC) $(CFLAGS) -DNO_CILK $(call XARR_CFLAGS,$*) $< -o $@ -c
+rle/prle_rec_xarray_%: rle/prle_rec_xarray_%.o xarray/xarray_%.o
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $^ -o $@
 
 rle/prle_rec_mpools: rle/rle_rec_mpools.c
 	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@

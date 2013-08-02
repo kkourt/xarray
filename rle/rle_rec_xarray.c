@@ -104,6 +104,9 @@ rle_decode(xarray_t *rle, unsigned long syms_nr)
 			.p                =  sla_p,
 			.max_level        =  sla_max_level,
 			.elems_chunk_size =  xarr_syms_grain,
+		},
+		.rpa = {
+			.elems_alloc_grain = xarr_syms_grain
 		}
 	});
 
@@ -163,6 +166,9 @@ rle_create_xarr(void)
 			.p                =  sla_p,
 			.max_level        =  sla_max_level,
 			.elems_chunk_size =  xarr_rle_grain,
+		},
+		.rpa = {
+			.elems_alloc_grain = xarr_rle_grain
 		}
 	});
 	assert(xarray_elem_size(ret) == sizeof(struct rle_node));

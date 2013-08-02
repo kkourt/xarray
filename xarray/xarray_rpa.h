@@ -114,6 +114,8 @@ xarray_concat(xarray_t *arr1, xarray_t *arr2)
 	arr1->rpa.root = &rpa_concat(n1, n2)->n_hdr;
 
 	free(arr2);
+
+	//rpa_rebalance(&arr1->rpa);
 	return arr1;
 }
 
@@ -200,24 +202,30 @@ xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
 		return NULL;
 	}
 
-	*nelems = MIN(xsl->len, rpa_ptr_leaf_nelems(&xsl->sl_ptr));
-	//printf("%s: nelems=%zd len:%zd\n", __FUNCTION__, *nelems, xsl->len);
-	assert(*nelems > 0);
+
 	xelem_t *ret = rpa_ptr_leaf_data(&xsl->xarr->rpa, &xsl->sl_ptr);
+
+	*nelems = xsl->len;
+	rpa_ptr_next_elems(&xsl->sl_ptr, nelems);
 
 	xsl->start += *nelems;
 	xsl->len -= *nelems;
-	rpa_ptr_next(&xsl->sl_ptr);
 
 	return ret;
 }
 
-/*
 static inline xelem_t *
 xslice_getnext(xslice_t *xsl)
 {
+	assert(xsl->len > 0);
+	xelem_t *ret = rpa_ptr_leaf_data(&xsl->xarr->rpa, &xsl->sl_ptr);
+	size_t nelems = 1;
+	rpa_ptr_next_elems(&xsl->sl_ptr, &nelems);
+	xsl->start++;
+	xsl->len--;
+	assert(nelems == 1);
+	return ret;
 }
-*/
 
 static inline void
 xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2)

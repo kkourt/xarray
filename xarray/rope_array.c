@@ -7,6 +7,8 @@ rpa_init(struct rpa *rpa, size_t elem_size, size_t alloc_grain)
 {
 	struct rpa_leaf *leaf;
 
+	assert(alloc_grain > 0);
+	assert(elem_size > 0);
 	rpa->elem_size   = elem_size;
 	rpa->alloc_grain = alloc_grain;
 
@@ -115,7 +117,6 @@ rpa_append_prepare(struct rpa *rpa, size_t *nelems)
 	struct rpa_leaf *tail;
 	size_t tail_nelems, elem_size;
 
-
 	// check if we need to allocate a new leaf
 	if (rpa_tail_full(rpa)) {
 		struct rpa_leaf *leaf = rpa_leaf_alloc(rpa);
@@ -131,7 +132,8 @@ rpa_append_prepare(struct rpa *rpa, size_t *nelems)
 	assert(tail->d_size % elem_size == 0); // not really needed
 
 	ret = tail->data + (tail->l_hdr.nelems*elem_size);
-	*nelems = MIN(*nelems, (tail->d_size / elem_size) - tail_nelems);
+	*nelems = (tail->d_size / elem_size) - tail_nelems;
+	assert(*nelems > 0);
 	return ret;
 }
 
