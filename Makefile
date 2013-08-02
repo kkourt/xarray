@@ -5,7 +5,6 @@ DEBUG_BUILD    ?= 0
 NOSTATS_BUILD  ?= 0
 SLA_MAX_LEVEL  ?= 5
 
-
 CILKDIR            = /usr/src/other/cilkplus.install
 #CILKDIR            = /usr/src/other/gcc-cilk.git/install
 
@@ -61,7 +60,8 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da   \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
-     sum/sum_xarray_da sum/sum_xarray_sla sum/sum_xarray_rpa
+     sum/sum_xarray_da sum/sum_xarray_sla sum/sum_xarray_rpa \
+     xarray/tests/slice_rpa xarray/tests/slice_sla xarray/tests/slice_da
 
      #xarray/xvarray-tests/branch_sla
      #floorplan/floorplan-serial floorplan/floorplan
@@ -99,6 +99,12 @@ xarray/rope_array.o: xarray/rope_array.c xarray/rope_array.h
 
 xarray/xarray_rpa.o: xarray/rope_array.o
 	$(LD) -i $^ -o $@
+
+## Tests
+
+xarray/tests/slice_%: xarray/xarray_%.o xarray/tests/slice.c $(hdrs)
+	$(CC) $(CFLAGS) $(call XARR_CFLAGS,$*) $(LDFLAGS) $< xarray/tests/slice.c -o $@
+
 ## SUM
 
 # openMP version
