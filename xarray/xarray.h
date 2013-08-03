@@ -154,8 +154,8 @@ static void     xslice_split(xslice_t *xsl, xslice_t *xsl1, xslice_t *xsl2);
 /**
  * xarray append helpers
  */
-static inline void
 // helper to append @total_elems from @elems in @xarr
+static inline void
 xarray_append_elems(xarray_t *xarr, xelem_t *elems, size_t total_elems)
 {
 	size_t   nelems, elems_i, elem_size;

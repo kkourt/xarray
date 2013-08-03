@@ -94,6 +94,8 @@ rle_mkrand(xarray_t *xarr, size_t rle_nr, size_t *syms_nr)
 xarray_t *
 rle_decode(xarray_t *rle, unsigned long syms_nr)
 {
+	// NB: for DA we preallocate the array for all symbols, which makes it
+	// much faster than the other implementations
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(char),
 		.da = {
@@ -412,7 +414,9 @@ main(int argc, const char *argv[])
 
 	rle_stats_init(nthreads);
 
-	rle_mkrand(rle, rles_nr, &syms_nr);
+	TSC_REPORT_TICKS("rle_mkrand",{
+		rle_mkrand(rle, rles_nr, &syms_nr);
+	});
 
 	printf("xarray impl: %s\n",        XARRAY_IMPL);
 	printf("number of rles:    %lu\n", rles_nr);
@@ -446,10 +450,12 @@ main(int argc, const char *argv[])
 
 
 	#if !defined(NDEBUG)
-	if (rle_cmp(rle, rle_new) != 1) {
-		fprintf(stderr, "RLEs do not match\n");
-		exit(1);
-	}
+	TSC_REPORT_TICKS("rle_cmp", {
+		if (rle_cmp(rle, rle_new) != 1) {
+			fprintf(stderr, "RLEs do not match\n");
+			exit(1);
+		}
+	});
 	#endif
 	//rle_stats_report(nthreads, tsc_getticks(&total_ticks));
 
@@ -483,10 +489,12 @@ main(int argc, const char *argv[])
 
 	//rle_print(rle_rec);
 	#if !defined(NDEBUG)
-	if (rle_cmp(rle, rle_rec) != 1) {
-		fprintf(stderr, "RLEs do not match\n");
-		exit(1);
-	}
+	TSC_REPORT_TICKS("rle_cmp", {
+		if (rle_cmp(rle, rle_rec) != 1) {
+			fprintf(stderr, "RLEs do not match\n");
+			exit(1);
+		}
+	});
 	#endif
 
 	/*
