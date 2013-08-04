@@ -91,6 +91,57 @@ rle_mkrand(xarray_t *xarr, size_t rle_nr, size_t *syms_nr)
 		*syms_nr = syms_cnt;
 }
 
+void
+rle_mkrand_inc(xarray_t *xarr, size_t rle_nr, size_t *syms_nr)
+{
+	assert(xarr);
+	assert(xarray_elem_size(xarr) == sizeof(struct rle_node));
+	assert(xarray_size(xarr) == 0);
+
+	size_t syms_cnt = 0;
+	const int max_freq_max = 100;
+	const int max_freq_min = 2;
+	const int freq_inc_nr = rle_nr / (max_freq_max - max_freq_min);
+	const int min_freq = 1;
+
+	for (size_t i=0; i<rle_nr; i++) {
+		struct rle_node *rle = xarray_append(xarr);
+		int max_freq = max_freq_min + i/freq_inc_nr;
+		//printf("min_freq: %d max_freq:%d\n", min_freq, max_freq);
+		rle->symbol = 'a' + (i % 26);
+		rle->freq = min_freq + (rand() % (max_freq - min_freq +1));
+		syms_cnt += rle->freq;
+	}
+
+	if (syms_nr != NULL)
+		*syms_nr = syms_cnt;
+}
+
+void
+rle_mkrand_imba(xarray_t *xarr, size_t rle_nr, size_t *syms_nr)
+{
+	assert(xarr);
+	assert(xarray_elem_size(xarr) == sizeof(struct rle_node));
+	assert(xarray_size(xarr) == 0);
+
+	size_t syms_cnt = 0;
+	const int max_freq_max = 100;
+	const int max_freq_min = 2;
+	const int min_freq = 1;
+
+	for (size_t i=0; i<rle_nr; i++) {
+		struct rle_node *rle = xarray_append(xarr);
+		int max_freq = (i > rle_nr / 2) ? max_freq_max : max_freq_min;
+		//printf("min_freq: %d max_freq:%d\n", min_freq, max_freq);
+		rle->symbol = 'a' + (i % 26);
+		rle->freq = min_freq + (rand() % (max_freq - min_freq +1));
+		syms_cnt += rle->freq;
+	}
+
+	if (syms_nr != NULL)
+		*syms_nr = syms_cnt;
+}
+
 xarray_t *
 rle_decode(xarray_t *rle, unsigned long syms_nr)
 {
