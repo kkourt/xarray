@@ -328,8 +328,11 @@ static const unsigned long rpa_fib[] = {
       /* 42 */701408733, /* 43 */1134903170, /* 44 */1836311903,
       /* 45 */2971215073u };
 
+#include "build_assert.h"
+#include "array_size.h"
+
 #define RPA_FIB_SIZE 46
-//BUILD_ASSERT(sizeof(rpa_fib) == RPA_FIB_SIZE);
+STATIC_ASSERT(ARRAY_SIZE(rpa_fib) == RPA_FIB_SIZE);
 
 // see SGI's rope class implementation
 // in gcc: libstdc++-v3/include/ext/ropeimpl.h
@@ -376,12 +379,16 @@ rpa_add_to_forest(struct rpa_hdr *hdr,
 			forest[i] = NULL;
 		}
 		// found slot
-		if (nelems > rpa_fib[i+1])
+		if (nelems < rpa_fib[i+1])
 			break;
 		// We 've reached the end of rpa_fib,
 		// but did not find a proper slot
 		if (i == RPA_FIB_SIZE -2) {
-			fprintf(stderr, "Rope too deep. Extend rpa_fib?\n");
+			fprintf(stderr,
+			        "%s (%s:%d): Rope too deep: "
+			        "nelems=%zd i=%u rpa_fib[i]=%zd Extend rpa_fib?\n",
+			        __FUNCTION__, __FILE__, __LINE__,
+			        nelems, i, rpa_fib[i]);
 			abort();
 		}
 	}
@@ -406,7 +413,9 @@ rpa_add_to_forest(struct rpa_hdr *hdr,
 			break;
 		}
 		if (i == RPA_FIB_SIZE - 1) {
-			fprintf(stderr, "Rope too deep. Extend rpa_fib?\n");
+			fprintf(stderr,
+			        "%s (%s:%d): Rope too deep. Extend rpa_fib?\n",
+			        __FUNCTION__, __FILE__, __LINE__);
 			abort();
 		}
 	}
@@ -420,13 +429,13 @@ rpa_is_balanced(struct rpa_hdr *hdr)
 {
 	unsigned d = rpa_depth(hdr);
 
-	if (d > sizeof(rpa_fib)) {
-		fprintf(stderr, "Rope too deep. Extend rpa_fib?\n");
-		abort();
+	if (d >= ARRAY_SIZE(rpa_fib)) {
+		assert(rpa_fib[ARRAY_SIZE(rpa_fib) -1] > hdr->nelems);
+		return false;
 	}
 
 	// leafs have a depth of 0, so non-empty leafs are always balanced
-	return hdr->nelems >= rpa_fib[rpa_depth(hdr)];
+	return hdr->nelems >= rpa_fib[d];
 }
 
 void
@@ -434,12 +443,23 @@ rpa_rebalance(struct rpa *rpa)
 {
 	struct rpa_hdr *res = NULL, *tmp;
 	struct rpa_hdr *forest[RPA_FIB_SIZE] = {NULL};
+	struct rpa_hdr *root = rpa->root;
 
-	if (rpa_is_balanced(rpa->root))
+	#if 0
+	if (root->type == RPA_NODE) {
+		unsigned d = rpa_depth(root);
+		unsigned d1 = rpa_depth(rpa_hdr2node(root)->right);
+		unsigned d2 = rpa_depth(rpa_hdr2node(root)->left);
+		printf("d=%u right:%d left:%d length:%zd\n",
+		        d, d1, d2, root->nelems);
+	}
+	#endif
+
+	if (rpa_is_balanced(root))
 		return;
 
 	// recursively add nodes to forest
-	rpa_add_to_forest(rpa->root, forest);
+	rpa_add_to_forest(root, forest);
 
 	for (unsigned i=0; i<RPA_FIB_SIZE; i++) {
 		if ( (tmp = forest[i]) == NULL)
@@ -451,6 +471,17 @@ rpa_rebalance(struct rpa *rpa)
 
 	assert(res != NULL);
 	rpa->root = res;
+
+	#if 0
+	printf("AFTER REBAL\n");
+	if (res->type == RPA_NODE) {
+		unsigned d = rpa_depth(res);
+		unsigned d1 = rpa_depth(rpa_hdr2node(res)->right);
+		unsigned d2 = rpa_depth(rpa_hdr2node(res)->left);
+		printf("d=%u right:%d left:%d length:%zd\n",
+		        d, d1, d2, res->nelems);
+	}
+	#endif
 }
 
 void

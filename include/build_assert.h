@@ -37,4 +37,14 @@
 #define BUILD_ASSERT_OR_ZERO(cond) \
 	(sizeof(char [1 - 2*!(cond)]) - 1)
 
+
+#define ASSERT_CONCAT_(a, b) a##b
+#define ASSERT_CONCAT(a, b) ASSERT_CONCAT_(a, b)
+  /* This can't be used twice on the same line so ensure if using in headers
+   * that the headers are not included twice (by wrapping in #ifndef...#endif)
+   * Note it doesn't cause an issue when used on same line of separate modules
+   * compiled with gcc -combine -fwhole-program.  */
+# define STATIC_ASSERT(e) \
+    enum { ASSERT_CONCAT(assert_line_, __LINE__) = 1/(!!(e)) }
+
 #endif /* CCAN_BUILD_ASSERT_H */
