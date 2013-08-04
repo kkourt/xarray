@@ -418,6 +418,10 @@ main(int argc, const char *argv[])
 		rle_mkrand(rle, rles_nr, &syms_nr);
 	});
 
+	TSC_REPORT_TICKS("rebalance rle_mkrand", {
+		//xarray_rebalance(rle);
+	});
+
 	printf("xarray impl: %s\n",        XARRAY_IMPL);
 	printf("number of rles:    %lu\n", rles_nr);
 	printf("number of symbols: %lu\n", syms_nr);
@@ -435,6 +439,10 @@ main(int argc, const char *argv[])
 	xarray_t *syms;
 	TSC_REPORT_TICKS("rle_decode",{
 		syms = rle_decode(rle, syms_nr);
+	});
+
+	TSC_REPORT_TICKS("rebalance syms", {
+		//xarray_rebalance(syms);
 	});
 
 	xslice_t syms_sl;
@@ -478,6 +486,11 @@ main(int argc, const char *argv[])
 	tsc_report_ticks("rle_encode_rec", xticks);
 	rle_stats_report(nthreads, xticks);
 	rle_stats_destroy();
+
+	printf("rle_rec balanced? %d\n", xarray_is_balanced(rle_rec));
+	TSC_REPORT_TICKS("rebalance rle_rec", {
+		//xarray_rebalance(rle_rec);
+	});
 
 	/*
 	#ifdef YES_CILK

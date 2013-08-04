@@ -5,6 +5,7 @@
 #include <stddef.h> // size_t
 #include <assert.h>
 #include <string.h> // memcpy
+#include <stdbool.h>
 
 #define XARR_MIN(x,y) ((x<y) ? (x):(y))
 
@@ -197,6 +198,20 @@ xarray_append_set(xarray_t *xarr, char c, size_t total_elems)
 #include "xarray_sla.h"
 #elif defined(XARRAY_RPA__)
 #include "xarray_rpa.h"
+#endif
+
+#ifndef XARR_REBALANCE_
+static inline void
+xarray_rebalance(xarray_t *xarr)
+{
+	return;
+}
+
+static inline bool
+xarray_is_balanced(xarray_t *xarr)
+{
+	return true;
+}
 #endif
 
 /**

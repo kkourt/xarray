@@ -9,6 +9,12 @@
 
 #include "rope_array.h"
 
+static void
+xarr_rpa_rebal_implicit(struct rpa *rpa)
+{
+	//rpa_rebalance(rpa);
+}
+
 struct xarray_s {
 	struct rpa rpa;
 };
@@ -69,6 +75,7 @@ static inline void
 xarray_append_finalize(xarray_t *xarr, size_t nelems)
 {
 	rpa_append_finalize(&xarr->rpa, nelems);
+	xarr_rpa_rebal_implicit(&xarr->rpa);
 }
 
 static inline void
@@ -115,7 +122,7 @@ xarray_concat(xarray_t *arr1, xarray_t *arr2)
 
 	free(arr2);
 
-	//rpa_rebalance(&arr1->rpa);
+	xarr_rpa_rebal_implicit(&arr1->rpa);
 	return arr1;
 }
 
@@ -126,6 +133,24 @@ xarray_split(xarray_t *xa, xarray_t *xa1, xarray_t *xa2)
 	assert(false);
 }
 
+#define XARR_REBALANCE_
+static inline void
+xarray_rebalance(xarray_t *xa)
+{
+	rpa_rebalance(&xa->rpa);
+}
+
+static inline bool
+xarray_is_balanced(xarray_t *xarr)
+{
+	return rpa_is_balanced(xarr->rpa.root);
+}
+
+static inline void
+xarray_print(xarray_t *xarr)
+{
+	rpa_print(&xarr->rpa);
+}
 
 /**
  * Slices
