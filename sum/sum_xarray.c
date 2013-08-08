@@ -25,7 +25,6 @@ static unsigned long xarr_grain      = 64;
 static unsigned long sla_max_level   = 5;
 static float         sla_p = 0.5;
 
-
 static void
 set_params(void)
 {
@@ -82,7 +81,7 @@ create_xarr_int(void)
 }
 
 
-// 0.99 , return sum
+// 0..99 , return sum
 size_t
 xarr_int_mkrand(xarray_t *xarr, size_t nints)
 {

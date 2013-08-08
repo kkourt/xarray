@@ -90,4 +90,10 @@ xarray_pop(xarray_t *xarr, size_t elems)
 	dynarray_dealloc_nr(&xarr->da, elems);
 }
 
+static inline void
+xarray_print(xarray_t *xarr)
+{
+	//printf("%s: (%s:%s) NYI\n", __FUNCTION__, __FILE__, __LINE__);
+}
+
 #endif

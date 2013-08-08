@@ -79,6 +79,14 @@ int main(int argc, const char *argv[])
 	xarr_init(xarr, count);
 	assert(xarray_size(xarr) == count);
 
+	// check a slice idnetical to the array
+	{
+		printf("checking whole-array slice\n");
+		xslice_t xsl0;
+		xslice_init(xarr, 0, count, &xsl0);
+		xsl_test(&xsl0, count, 0, count);
+	}
+
 	// check slices
 	for (size_t start=0; start<count; start++) {
 		for (size_t len=1; len<=count-start; len++) {

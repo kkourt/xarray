@@ -183,36 +183,73 @@ rpa_depth_rec(struct rpa_hdr *hdr)
 }
 
 /**
- * get the leaf for index @elem_idx
+ * get the last node covering range @start_nelems, @len_nelems starting from @hdr.
+ *   @elem_off will be set to the offset of the range in @hdr
+ */
+struct rpa_hdr *
+rpa_gethdr_range(struct rpa_hdr *hdr, size_t start_nelems, size_t len_nelems,
+                 size_t *elem_off)
+{
+	struct rpa_hdr *left, *right;
+
+	// @hdr should contain the range
+	assert(hdr->nelems >= start_nelems + len_nelems);
+	assert(len_nelems > 0);
+
+	// eoff and len_nelems are the range we are looking for in @hdr
+	size_t eoff = start_nelems;
+	for (;;) {
+		if (hdr->type == RPA_LEAF)
+			break;
+
+		left = rpa_hdr2node(hdr)->left;
+		right = rpa_hdr2node(hdr)->right;
+		/**
+		 * Cases:
+		 *
+		 * A: range fits completely in @left
+		 *  eoff    eoff+len_nelems
+		 *   |-------->|
+		 * [-----left-----|-----right-----]
+		 *
+		 * B: range spans both @left and @right
+		 *  eoff          eoff+len_nelems
+		 *   |--------------->|
+		 * [-----left-----|-----right-----]
+		 *
+		 * C: range fits completely in @right
+		 *                eoff     eoff+len_nelems
+		 *                  |---------->|
+		 * [-----left-----|-----right-----]
+		 */
+		if (left->nelems > eoff) {
+			if (left->nelems >= eoff + len_nelems)
+				hdr = left; // case A: descend left
+			else
+				break; // case B: we are done, return @hdr
+		} else {
+			hdr = right; // case C: descend right
+			eoff -= left->nelems;
+		}
+	}
+
+	assert(hdr->nelems >= eoff + len_nelems);
+	*elem_off = eoff;
+	return hdr;
+}
+
+/**
+ * get the leaf for index @elem_idx inside @rpa_hdr
  *  @elem_off: the offset of @elem_idx inside the leaf
  */
 struct rpa_leaf *
 rpa_getleaf(struct rpa_hdr *hdr, size_t elem_idx, size_t *elem_off)
 {
-	size_t eidx = elem_idx;
-	for (;;) {
-		//printf("  %s   eidx=%zd nelems:%zd\n", __FUNCTION__, eidx, hdr->nelems);
-		if (hdr->type == RPA_LEAF) {
-			assert(eidx < hdr->nelems);
-			break;
-		}
 
-		struct rpa_node *node = rpa_hdr2node(hdr);
-		size_t left_nelems    = node->left->nelems;
-		if (eidx < left_nelems) {
-			hdr = node->left;
-		} else {
-			hdr = node->right;
-			eidx -= left_nelems;
-		}
-	}
-
-	// got a leaf
-	assert(hdr->nelems > eidx);
-	*elem_off = eidx;
-
+	hdr = rpa_gethdr_range(hdr, elem_idx, 1, elem_off);
 	return rpa_hdr2leaf(hdr);
 }
+
 
 void *
 rpa_getchunk(struct rpa *rpa, size_t elem_idx, size_t *ch_elems)

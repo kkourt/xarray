@@ -251,6 +251,12 @@ xarray_pop(xarray_t *xarr, size_t elems)
 	xarray_verify(xarr);
 }
 
+static inline void
+xarray_print(xarray_t *xarr)
+{
+	sla_print(&xarr->sla);
+}
+
 // let xarray.h know that we are implementing our own slices
 #define XSLICE_
 

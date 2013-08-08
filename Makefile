@@ -15,8 +15,8 @@ CILKCPP             = $(CILKDIR)/bin/g++
 LD                  = ld
 #CC                 = gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
-WARNINGS            =  -Wall -Wshadow
-OPTFLAGS            = -O3
+WARNINGS            =  -Wall -Wshadow -Werror
+OPTFLAGS            = -O2
 CFLAGS              = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c99 -ggdb3 -D_GNU_SOURCE -DSLA_MAX_LEVEL=$(SLA_MAX_LEVEL)
 CXXFLAGS            = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
 ifeq (0, $(DEBUG_BUILD))
@@ -36,6 +36,9 @@ CILKCCFLAGS        = -fcilkplus $(CFLAGS)
 CILKLDFLAGS        = -lcilkrts -Xlinker
 CILKLDFLAGS       += -rpath=$(CILKDIR)/lib
 CILKLDFLAGS       += $(LDFLAGS)
+
+#CFLAGS            += -fprofile-arcs -ftest-coverage
+#LDFLAGS           += -lgov
 
 ifeq (1,$(USE_TCMALLOC))
 	CFLAGS    += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -ltcmalloc
@@ -60,7 +63,8 @@ all: rle/rle_rec rle/prle_rec                       \
      rle/prle_rec_xarray_da rle/rle_rec_xarray_da  \
      rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla \
      rle/prle_rec_xarray_rpa rle/rle_rec_xarray_rpa \
-     sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp \
+     sum/sum_omp \
+     sum/psum_xarray_da sum/psum_xarray_sla sum/psum_xarray_rpa \
      sum/sum_xarray_da sum/sum_xarray_sla sum/sum_xarray_rpa \
      xarray/tests/slice_rpa xarray/tests/slice_sla xarray/tests/slice_da
 
