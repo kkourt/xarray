@@ -1,0 +1,4 @@
+seperate components:
+ . chunks
+ . structured arrays (sla,rpa)
+ . local/distributed structured array
