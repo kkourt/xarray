@@ -10,7 +10,6 @@ extern "C" {
 	#include "misc.h"
 };
 
-#include "slr_mm.hpp"
 #include "chunk.hpp"
 
 namespace sl {
@@ -81,10 +80,14 @@ static_assert(offsetof(SLR_PureNode, forward) == sizeof(SLR_PureNode),
 	          "forward pointer must be at the end");
 // apparently, offsetof is not allowed for non-POD data, and gcc produces a
 // warning.
+#if !defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
 static_assert(offsetof(SLA_Node<char>, forward) == sizeof(SLA_Node<char>),
 	          "forward pointer must be at the end");
+#if !defined(__clang__)
 #pragma GCC diagnostic pop
+#endif
 
 /**
  * SLR: skiplist range datastructure
