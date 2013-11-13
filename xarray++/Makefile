@@ -1,19 +1,22 @@
-.PHONY: all clean
+.PHONY: all clean tests
 
 CXX             = clang++
 #CXX             = g++
-INCLUDES        = -I ../include
+INCLUDES        = -I$(shell fullpath ../include) -I$(shell fullpath .)
 WARNINGS        = -Wall -Wshadow -Werror
-#OPTFLAGS        = -O2
-CXXFLAGS        = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c++11 -ggdb3 -D_GNU_SOURCE -D__STDC_FORMAT_MACROS # C++ (PRIu64)
+OPTFLAGS        = -O2
+DEFINES         = -D_GNU_SOURCE -D__STDC_FORMAT_MACROS
+CXXFLAGS        = $(INCLUDES) $(WARNINGS) $(OPTFLAGS) -std=c++11  $(DEFINES)
+CXXFLAGS       += -ggdb3
 
-all: sl_range
+all: tests
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) $< -c -o $@
+## export all variables for recursive calls of make
+export
 
-sl_range: sl_range.o
-	$(CXX) $< -o $@
+tests:
+	$(MAKE) -C tests/
 
 clean:
-	rm -f *.o sl_range
+	rm -f *.o
+	$(MAKE) -C tests/ clean

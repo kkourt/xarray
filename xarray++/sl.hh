@@ -1,5 +1,5 @@
-#ifndef XARR_SL_RANGE_HPP__
-#define XARR_SL_RANGE_HPP__
+#ifndef XARR_SL_HH__
+#define XARR_SL_HH__
 
 #include <iostream>
 #include <cstddef>   // size_t
@@ -704,7 +704,7 @@ public:
 	SLA(unsigned int max_level_, float p_): SLR_T(max_level_, p_) { };
 
 	NodeT *
-	sla_do_find(NodeT *node, unsigned int lvl, size_t idx, size_t key,
+	do_find(NodeT *node, unsigned int lvl, size_t idx, size_t key,
 	            size_t *chunk_off) {
 		size_t next_e, next_s;
 		for(;;) { /* iterate all levels */
@@ -907,44 +907,4 @@ void sla_copyto_rand(SLA *sla, typename SLA::elemT *src, size_t len,
 
 }; // end namespace sl
 
-using namespace sl;
-
-int main(int argc, const char *argv[])
-{
-	std::uniform_real_distribution<double> u(0,1);
-	std::cout << SLR_PureNode::size() << std::endl;
-	std::cout << SLA_Node<char>::size() << std::endl;
-	std::cout << SLA_Node<char>::size(1) << std::endl << std::endl;
-
-	SLA<char> sla(10,.5);
-	sla.verify();
-	sla.print();
-
-	char buff[1024];
-	for (unsigned i=0; i<sizeof(buff); i++) {
-		buff[i] = 'a' + (i % ('z' - 'a' + 1));
-	}
-
-	sla_copyto_rand(&sla, buff, sizeof(buff), 10, 100);
-	sla.print();
-	//sla_print_chars(&sla);
-	//sla_print(&sla); printf("\n");
-
-	#if 0
-	for (size_t idx=0; idx < sizeof(buff); idx++) {
-		size_t off;
-		sla_node_t *n = sla_find(&sla, idx, &off);
-		char c1 = ((char *)n->chunk)[off];
-		char c2 = buff[idx];
-		printf("[idx:%3lu] %c--%c\n", idx, c1, c2);
-		if (c1 != c2) {
-			fprintf(stderr, "FAIL!\n");
-			abort();
-		}
-	}
-	#endif
-
-	return 0;
-}
-
-#endif /* XARR_SL_RANGE_HPP__ */
+#endif /* XARR_SL_HH__ */
