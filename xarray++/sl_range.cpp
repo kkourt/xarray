@@ -262,7 +262,7 @@ public:
 			printf(">");
 
 			for (iterator it = begin(lvl); it != end(); ++it) {
-				printf("(%zu     )----", it->cnt(lvl));
+				printf("(%4zu     )----", it->cnt(lvl));
 				NodeT *z = it.node();
 				while ((z = z->next_node(0)) != it->next_node(lvl)) {
 					printf("----------------");
