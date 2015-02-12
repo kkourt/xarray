@@ -5,15 +5,20 @@ DEBUG_BUILD    ?= 0
 NOSTATS_BUILD  ?= 0
 SLA_MAX_LEVEL  ?= 5
 
-CILKDIR            = /usr/src/other/cilkplus.install
+# gcc 4.9 has native support for cilk, so we do not need a special branch
+#CILKDIR            = /usr/src/other/cilkplus.install
 #CILKDIR            = /usr/src/other/gcc-cilk.git/install
+#CC                 = $(CILKDIR)/bin/gcc
+#CPP                = $(CILKDIR)/bin/g++
+#CILKCC             = $(CILKDIR)/bin/gcc
+#CILKCPP            = $(CILKDIR)/bin/g++
 
-CC                  = $(CILKDIR)/bin/gcc
-CPP                 = $(CILKDIR)/bin/g++
-CILKCC              = $(CILKDIR)/bin/gcc
-CILKCPP             = $(CILKDIR)/bin/g++
+CC                 = gcc-4.9
+CPP                = g++-4.9
+CILKCC             = gcc-4.9
+CILKCPP            = g++-4.9
+
 LD                  = ld
-#CC                 = gcc
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
 WARNINGS            =  -Wall -Wshadow -Werror
 OPTFLAGS            = -O2
@@ -33,8 +38,8 @@ xvarray_objs_sla   = $(verp_objs) $(sla_objs)
 
 CILKCCFLAGS        = -fcilkplus $(CFLAGS)
                       # we don't need no stinkin LD_LIBRARY_PATH
-CILKLDFLAGS        = -lcilkrts -Xlinker
-CILKLDFLAGS       += -rpath=$(CILKDIR)/lib
+CILKLDFLAGS        = -lcilkrts
+#CILKLDFLAGS       += -Xlinker -rpath=$(CILKDIR)/lib
 CILKLDFLAGS       += $(LDFLAGS)
 
 #CFLAGS            += -fprofile-arcs -ftest-coverage
@@ -119,6 +124,13 @@ xarray/tests/slice_%: xarray/xarray_%.o xarray/tests/slice.c $(hdrs)
 sum/sum_omp: sum/sum_openmp.c $(hdrs)
 	$(CC) $(CFLAGS) $(LDFLAGS) -fopenmp $< -o $@
 
+#
+sum/sum: sum/sum.c $(hdrs)
+	$(CC) $(CFLAGS) $(LDFLAGS) -DNO_CILK $< -o $@
+
+sum/psum: sum/sum.c $(hdrs)
+	$(CILKCC) $(CILKCCFLAGS) $(CILKLDFLAGS) $< -o $@
+
 # parallel version
 sum/psum_xarray_%.o: sum/sum_xarray.c $(hdrs)
 	$(CILKCC) $(CILKCCFLAGS) $(call XARR_CFLAGS,$*)  $< -o $@ -c
@@ -201,6 +213,7 @@ clean:
 	rm -f rle/rle_rec rle/prle_rec  rle/rle_rec_mpools rle/prle_rec_mpools
 	rm -f rle/prle_rec_xarray_da  rle/rle_rec_xarray_da
 	rm -f rle/prle_rec_xarray_sla rle/rle_rec_xarray_sla
+	rm -f rle/prle_rec_xarray_rpa rle/rle_rec_xarray_rpa
 	#
 	rm -f floorplan/*.o
 	rm -f floorplan/floorplan floorplan/floorplan-serial xarray/*.o
@@ -219,27 +232,3 @@ xarray/xvarray-tests/branch_sla.o: xarray/xvarray-tests/branch.c $(hdrs)
 
 xarray/xvarray-tests/branch_sla: xarray/xvarray-tests/branch_sla.o $(xvarray_objs_sla)
 	$(CC) $(LDFLAGS) $^ -o $@
-
-
-
-## Old versions based on cilk, compiled as C
-
-#rle_rec: rle_rec.cilk
-#	$(CC) -xc -DNO_CILK $(CFLAGS) $< -o $@
-#
-#rle_rec-mempools: rle_rec-mempools.cilk
-#	$(CC) -xc -DNO_CILK $(CFLAGS) $< -o $@
-
-
-## Old versions based on cilk, which is now borken
-
-#rle_rec-SKEL: rle_rec-SKEL.cilk
-#	cilkc -cilk-critical-path $(CFLAGS) $< -o $@
-#
-#prle_rec: rle_rec.cilk
-#	cilkc -cilk-critical-path $(CFLAGS) $< -o $@
-#
-#prle_rec-mempools: rle_rec-mempools.cilk
-#	cilkc -cilk-critical-path $(CFLAGS) $< -o $@
-#clean:
-	#rm -f rle_rec prle_rec prle_rec-mempools rle_rec-mempools prle_rec_mpools *.o

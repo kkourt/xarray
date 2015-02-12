@@ -135,8 +135,6 @@ int
 sum_rec(xslice_t *ints)
 {
 
-	int ret, ret1, ret2;
-
 	assert(xslice_size(ints) > 0);
         #if defined(YES_CILK)
         int __attribute__((unused)) myid = __cilkrts_get_worker_number();
@@ -155,12 +153,11 @@ sum_rec(xslice_t *ints)
 	SUM_TIMER_START(sum_split);
 	xslice_split(ints, &s1, &s2);
 	SUM_TIMER_PAUSE(sum_split);
-	ret1 = cilk_spawn sum_rec(&s1);
-	ret2 = cilk_spawn sum_rec(&s2);
+	int ret1 = cilk_spawn sum_rec(&s1);
+	int ret2 = cilk_spawn sum_rec(&s2);
 	cilk_sync;
 
-	ret = ret1 + ret2;
-	return ret;
+	return ret1 + ret2;
 }
 
 int
@@ -208,10 +205,13 @@ main(int argc, const char *argv[])
 
 	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
 	//printf("DOING SUM\n");
-	TSC_MEASURE_TICKS(xticks, {
+	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
+	tsc_t ytsc_; tsc_init(&ytsc_); tsc_start(&ytsc_);
+	// TSC_MEASURE_TICKS(xticks, {
 		sum2 = cilk_spawn sum_rec(&ints_sl);
 		cilk_sync;
-	});
+	//});
+	tsc_pause(&ytsc_); uint64_t xticks = tsc_getticks(&ytsc_);
 
 	tsc_report_ticks("sum_rec_ALL", xticks);
 	sum_stats_report(nthreads, xticks);

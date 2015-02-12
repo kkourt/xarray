@@ -2,6 +2,11 @@
 #define CCAN_ARRAY_SIZE_H
 #include "build_assert.h"
 
+#ifndef typeof
+#define HAVE_TYPEOF 1
+#define typeof __typeof__ /* -ansi only supports __typeof__ */
+#endif
+
 /**
  * ARRAY_SIZE - get the number of elements in a visible array
  * @arr: the array whose size you want.

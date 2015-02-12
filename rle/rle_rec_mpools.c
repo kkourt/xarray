@@ -520,11 +520,14 @@ rle_merge(struct rle_mempool *pool, struct rle_head *rle1, struct rle_head *rle2
 }
 
 struct rle_head *
-rle_encode_rec(char *symbols, unsigned long syms_nr)
+rle_encode_rec(char *symbols, size_t syms_nr)
 {
-	unsigned long syms_nr1, syms_nr2;
 	struct rle_head *rle1, *rle2;
-	struct rle_head *ret;
+
+	// NB: If these are moved above the spawns, gcc complains about
+	// potentially uninitialized variables
+	size_t syms_nr1 = syms_nr / 2;
+	size_t syms_nr2 = syms_nr - syms_nr1;
 
 	if (syms_nr == 0 || symbols == NULL)
 		return NULL;
@@ -542,16 +545,13 @@ rle_encode_rec(char *symbols, unsigned long syms_nr)
 	}
 
 	/* binary splitting */
-	syms_nr1 = syms_nr / 2;
-	syms_nr2 = syms_nr - syms_nr1;
 	rle1 = cilk_spawn rle_encode_rec(symbols, syms_nr1);
 	rle2 = cilk_spawn rle_encode_rec(symbols + syms_nr1, syms_nr2);
 	cilk_sync;
 
 	/* combining solutions */
 	//assert(rle1 != NULL && rle2 != NULL);
-	ret = rle_merge(rle_mempool_get(), rle1, rle2);
-	return ret;
+	return rle_merge(rle_mempool_get(), rle1, rle2);
 }
 
 int
@@ -590,7 +590,8 @@ main(int argc, const char *argv[])
 {
 	struct rle_head *rle, *rle_new=NULL, *rle_rec;
 	unsigned long syms_nr, rles_nr;
-	char *symbols, *rle_rec_limit_str;
+	char *rle_rec_limit_str;
+	char *symbols = NULL; // shut gcc up
 	tsc_t t;
 	/*
 	#ifdef YES_CILK

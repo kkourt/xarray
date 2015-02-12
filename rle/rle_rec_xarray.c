@@ -529,10 +529,12 @@ main(int argc, const char *argv[])
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
 	rle_stats_init(nthreads);
 
-	TSC_MEASURE_TICKS(xticks, {
+	tsc_t ytsc_; tsc_init(&ytsc_); tsc_start(&ytsc_);
+	// TSC_MEASURE_TICKS(xticks, {
 		rle_rec = cilk_spawn rle_encode_rec(&syms_sl);
 		cilk_sync;
-	});
+	//});
+	tsc_pause(&ytsc_); uint64_t xticks = tsc_getticks(&ytsc_);
 
 	tsc_report_ticks("rle_encode_rec", xticks);
 	rle_stats_report(nthreads, xticks);
