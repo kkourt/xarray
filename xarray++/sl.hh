@@ -13,6 +13,11 @@ extern "C" {
 	#include "misc.h"
 };
 
+// search below for where this is used
+#ifndef SLR_MAX_LEVEL
+#define SLR_MAX_LEVEL 8
+#endif
+
 template <typename T>
 struct Chunk {
 	T       *ch_ptr;
@@ -557,6 +562,34 @@ public:
 		verify();
 		return n;
 	}
+
+
+	/**
+	 * SLR Ponters
+	 *
+	 * Ponters are special forward pointer structures, used to implement slices.
+	 * Essentially they allow to start a search from a different point in the
+	 * SLA.  They are similar to the forward pointers in head nodes, but they
+	 * have a meaningful cnt. The cnt is the _total_ cnt from the original head
+	 * of the sla.
+	 *
+	 * head nodes have a size to accomodate ->max_level, since pointers do not
+	 * change, having a size to accomodate ->cur_level should work OK.
+	 *
+	 * Pointers will not work correctly if you break the structure of an SLA --
+	 * i.e., by doing an SLA split. They will probably work OK if you just
+	 * append data. Note that in this case, there will a benign incosistency
+	 * when nodes are added with a level for which the pointer points to tail.
+	 * XXX: Another structural issue seems to be changing ->cur_level. Need to
+	 * check up on that...
+	 *
+	 */
+	class ptr {
+private:
+		unsigned cur_level;
+		fwrd_type fw[];
+public:
+	};
 };
 
 /**
