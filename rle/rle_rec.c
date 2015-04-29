@@ -1,3 +1,9 @@
+/**
+ * rle_rec.c
+ * run-length encoding benchmark, where an array is used for the input (symbols)
+ * and a list for the output (run-length tokens)
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -17,6 +23,9 @@
 
 #include "rle_rec_stats.h"
 DECLARE_RLE_STATS
+
+// default RLE recursion limit
+static unsigned rle_rec_limit = 64;
 
 unsigned
 rle_getmyid(void)
@@ -38,30 +47,12 @@ struct rle_head {
 	struct rle_node *first, *last;
 };
 
-static unsigned rle_rec_limit = 64;
-
-
-/*
- * do_loops: keep the processor busy, doing nothing
- */
-void do_loops(unsigned cnt)
-{
-	volatile unsigned i;
-	for (i=0; i<cnt; i++)
-		;
-}
 
 struct rle_head *
 rle_head_alloc(void)
 {
 	struct rle_head *ret;
-
-	ret = malloc(sizeof(struct rle_head));
-	if (ret == NULL) {
-		fprintf(stderr, "%s: malloc failed\n", __FUNCTION__);
-		exit(1);
-	}
-
+	ret = xmalloc(sizeof(struct rle_head));
 	return ret;
 }
 
@@ -69,13 +60,7 @@ struct rle_node *
 rle_alloc(void)
 {
 	struct rle_node *rle;
-
-	rle = malloc(sizeof(struct rle_node));
-	if (rle == NULL){
-		fprintf(stderr, "%s: malloc failed\n", __FUNCTION__);
-		exit(1);
-	}
-
+	rle = xmalloc(sizeof(struct rle_node));
 	return rle;
 }
 
@@ -308,7 +293,7 @@ set_params(void)
 		} \
 	} while (0)
 
-	set_paraml("RLE_REC_LIMIT",   rle_rec_limit);
+	set_paraml("RLE_REC_LIMIT",  rle_rec_limit);
 
 	#undef set_paraml
 }
@@ -320,14 +305,6 @@ main(int argc, const char *argv[])
 	unsigned long syms_nr, rles_nr;
 	char *symbols;
 	tsc_t t;
-
-	/*
-	#ifdef YES_CILK
-	Cilk_time tm_begin, tm_elapsed;
-	Cilk_time wk_begin, wk_elapsed;
-	Cilk_time cp_begin, cp_elapsed;
-	#endif
-	*/
 
 	set_params();
 
@@ -369,14 +346,6 @@ main(int argc, const char *argv[])
 	}
 	cilk_sync;
 
-	/*
-	#ifdef YES_CILK
-	cp_begin = Cilk_user_critical_path;
-	wk_begin = Cilk_user_work;
-	tm_begin = Cilk_get_wall_time();
-	#endif
-	*/
-
 	rle_stats_init(nthreads);
 	tsc_init(&t); tsc_start(&t);
 	rle_rec = cilk_spawn rle_encode_rec(symbols, syms_nr);
@@ -386,28 +355,11 @@ main(int argc, const char *argv[])
 	rle_stats_report(nthreads, tsc_getticks(&t));
 	rle_stats_destroy();
 
-	/*
-	#ifdef YES_CILK
-	tm_elapsed = Cilk_get_wall_time() - tm_begin;
-	wk_elapsed = Cilk_user_work - wk_begin;
-	cp_elapsed = Cilk_user_critical_path - cp_begin;
-	#endif
-	*/
-
 	//rle_print(rle_rec);
 	if (rle_cmp(rle, rle_rec) != 1) {
 		fprintf(stderr, "RLEs do not match\n");
 		exit(1);
 	}
-
-	/*
-	#ifdef YES_CILK
-	printf("Running time = %4f s\n", Cilk_wall_time_to_sec(tm_elapsed));
-	printf("Work          = %4f s\n", Cilk_time_to_sec(wk_elapsed));
-	printf("Span          = %4f s\n\n", Cilk_time_to_sec(cp_elapsed));
-	#endif
-	*/
-
 
 	return 0;
 }
