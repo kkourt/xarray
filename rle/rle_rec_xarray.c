@@ -1,3 +1,9 @@
+/**
+ * rle_rec_xarray.c
+ * run-length ecndoing benchmark where an xarray is used for the input and
+ * output
+ */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -25,10 +31,9 @@ rle_getmyid(void)
 	return ret;
 }
 
-
 #include <xarray.h>
 
-// parameters
+// parameters (with default values)
 static unsigned long rle_rec_limit   = 256;
 static unsigned long xarr_rle_grain  = 32;
 static unsigned long xarr_syms_grain = 512;
@@ -426,20 +431,12 @@ set_params(void)
 
 	#undef set_paraml
 	#undef set_paramf
-
 }
 
 int
 main(int argc, const char *argv[])
 {
 	unsigned long syms_nr, rles_nr;
-	/*
-	#ifdef YES_CILK
-	Cilk_time tm_begin, tm_elapsed;
-	ilk_time wk_begin, wk_elapsed;
-	Cilk_time cp_begin, cp_elapsed;
-	#endif
-	*/
 
 	set_params();
 
@@ -480,7 +477,6 @@ main(int argc, const char *argv[])
 	printf("xarr_rle_grain:    %lu\n", xarr_rle_grain);
 	printf("xarr_syms_grain:   %lu\n", xarr_syms_grain);
 	printf("sla_max_level:     %lu\n", sla_max_level);
-	printf("SLA_MAX_LEVEL:     %u\n",  SLA_MAX_LEVEL);
 	printf("sla_p:             %lf\n", sla_p);
 	printf("Number of threads: %u\n", nthreads);
 
@@ -518,14 +514,6 @@ main(int argc, const char *argv[])
 	#endif
 	//rle_stats_report(nthreads, tsc_getticks(&total_ticks));
 
-	/*
-	#ifdef YES_CILK
-	cp_begin = Cilk_user_critical_path;
-	wk_begin = Cilk_user_work;
-	tm_begin = Cilk_get_wall_time();
-	#endif
-	*/
-
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
 	rle_stats_init(nthreads);
 
@@ -545,14 +533,6 @@ main(int argc, const char *argv[])
 		//xarray_rebalance(rle_rec);
 	});
 
-	/*
-	#ifdef YES_CILK
-	tm_elapsed = Cilk_get_wall_time() - tm_begin;
-	wk_elapsed = Cilk_user_work - wk_begin;
-	cp_elapsed = Cilk_user_critical_path - cp_begin;
-	#endif
-	*/
-
 	//rle_print(rle_rec);
 	#if !defined(NDEBUG)
 	TSC_REPORT_TICKS("rle_cmp", {
@@ -563,15 +543,8 @@ main(int argc, const char *argv[])
 	});
 	#endif
 
-	/*
-	#ifdef YES_CILK
-	printf("Running time = %4f s\n", Cilk_wall_time_to_sec(tm_elapsed));
-	printf("Work          = %4f s\n", Cilk_time_to_sec(wk_elapsed));
-	printf("Span          = %4f s\n\n", Cilk_time_to_sec(cp_elapsed));
-	#endif
-	*/
-
-
 	printf("DONE\n");
 	return 0;
 }
+
+// let b:syntastic_c_cflags="-I../xarray -std=gnu11 -DXARRAY_DA__ -DNO_CILK"
