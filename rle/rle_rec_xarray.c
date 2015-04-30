@@ -150,12 +150,13 @@ rle_mkrand_imba(xarray_t *xarr, size_t rle_nr, size_t *syms_nr)
 xarray_t *
 rle_decode(xarray_t *rle, unsigned long syms_nr)
 {
-	// NB: for DA we preallocate the array for all symbols, which makes it
-	// much faster than the other implementations
 	xarray_t *ret = xarray_create(&(struct xarray_init){
 		.elem_size = sizeof(char),
 		.da = {
 			.elems_alloc_grain = xarr_syms_grain,
+			// NB: for DA we preallocate the array for all symbols,
+			// which makes it much faster than the other
+			// implementations
 			.elems_init = syms_nr
 		},
 		.sla = {
@@ -362,6 +363,7 @@ rle_encode_rec(xslice_t *syms)
 	return ret;
 }
 
+// TODO: parallel version
 int
 rle_cmp(xarray_t *rle1, xarray_t *rle2)
 {
