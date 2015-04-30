@@ -193,8 +193,15 @@ rpa_gethdr_range(struct rpa_hdr *hdr, size_t start_nelems, size_t len_nelems,
 	struct rpa_hdr *left, *right;
 
 	// @hdr should contain the range
-	assert(hdr->nelems >= start_nelems + len_nelems);
-	assert(len_nelems > 0);
+	#if !defined(NDEBUG)
+	if (hdr->nelems < start_nelems + len_nelems) {
+		fprintf(stderr,"node has less elements than requested:"
+		               "hdr->nelems=%zd start_nelems=%zd len_nelems=%zd",
+		               hdr->nelems, start_nelems, len_nelems);
+		abort();
+	}
+	#endif
+	// assert(len_nelems > 0);
 
 	// eoff and len_nelems are the range we are looking for in @hdr
 	size_t eoff = start_nelems;

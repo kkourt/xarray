@@ -21,8 +21,8 @@ struct rpa_node;
 
 // rope array
 //   @elem_size is the size of the array's elements
-//   @alloc_grain is the default leaf node (in elemenets)
-//   @tail points always to the last leaf
+//   @alloc_grain is the default leaf node size (in elements)
+//   @tail always points to the last leaf
 struct rpa {
 	size_t           elem_size;
 	size_t           alloc_grain;
@@ -30,7 +30,7 @@ struct rpa {
 	struct rpa_leaf *tail;
 };
 
-// common part for (intenal) nodes and leafs in the rope array
+// common part for intenal nodes and leafs in the rope array
 struct rpa_hdr {
 	size_t          nelems;        // len in number of elements;
 	struct rpa_node *parent;
@@ -41,7 +41,7 @@ struct rpa_hdr {
 	} type;
 };
 
-// rope array (internal) node. Note that this is also called concatenation.
+// rope array internal node. Note that this is also called a concatenation.
 struct rpa_node {
 	struct rpa_hdr n_hdr;
 	struct rpa_hdr *left, *right;
@@ -61,7 +61,7 @@ struct rpa_leaf {
     .type = type_                                      \
 }
 
-#define RPA_LEAF_HDR_INIT         RPA_HDR_INIT(0, RPA_LEAF);
+#define RPA_LEAF_HDR_INIT         RPA_HDR_INIT(0, RPA_LEAF)
 #define RPA_NODE_HDR_INIT(nelems) RPA_HDR_INIT(nelems, RPA_NODE)
 
 /**
@@ -102,6 +102,7 @@ rpa_elem_size(struct rpa *rpa)
 	return rpa->elem_size;
 }
 
+// recersive computation of depth
 unsigned int rpa_depth_rec(struct rpa_hdr *hdr);
 
 static inline unsigned int
@@ -230,9 +231,9 @@ rpa_get(struct rpa *rpa, size_t elem_idx)
  *   @sl_start/@sl_len: start and len of the slice in @rpa
  *   @hdr0:             smallest node that contains the whole slice
  *   @leaf0:            first leaf of the slice
- *   @leaf0_off:        offset of slice in ferst leaf
+ *   @leaf0_off:        offset of slice in first leaf
  *
- * hdr0 and leaf0 are essentially optimization to avoid searching the whole
+ * hdr0 and leaf0 are an optimization to avoid searching the whole
  * rpa.
  * ->leaf0 is used to access the start of the slice.
  * ->hdr0 is used for random access.
@@ -278,7 +279,7 @@ rpa_slice_init_slice(struct rpa_slice *sl,
                      struct rpa_slice const *sl_orig,
                      size_t off_nelems, size_t len_nelems)
 {
-	assert(sl_orig->sl_len >= idx + len);
+	// assert(sl_orig->sl_len >= idx + len);
 
 	sl->rpa = sl_orig->rpa;
 	sl->sl_len = len_nelems;
@@ -334,7 +335,7 @@ rpa_slice_getchunk(struct rpa_slice *sl, size_t idx, size_t *nelems)
 	leaf = rpa_getleaf(sl->hdr0, sl->hdr0_off, &leaf_off);
 
 	assert(sl->sl_len > idx);
-	assert(leaf->l_ndr.nelems > leaf_off);
+	//assert(leaf->l_ndr.nelems > leaf_off);
 	*nelems = MIN(sl->sl_len - idx, leaf->l_hdr.nelems - leaf_off);
 
 	d_off = leaf_off*sl->rpa->elem_size;
@@ -346,11 +347,16 @@ rpa_slice_getchunk(struct rpa_slice *sl, size_t idx, size_t *nelems)
 static inline void
 rpa_slice_move_start(struct rpa_slice *sl, size_t nelems)
 {
-	assert(sl->len >= nelems);
 
+	assert(sl->sl_len >= nelems);
 	sl->sl_start += nelems;
 	sl->sl_len   -= nelems;
 
+	// slice size is zero: slice can no longer be accssed
+	if (sl->sl_len == 0)
+		return;
+
+	//printf("%s: sl->sl_len=%zd\n", __FUNCTION__, sl->sl_len);
 	sl->hdr0 = rpa_gethdr_range(sl->hdr0,
 	                            sl->hdr0_off + nelems,
 	                            sl->sl_len,

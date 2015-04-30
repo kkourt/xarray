@@ -204,6 +204,7 @@ xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
 {
 	void *ret;
 
+	//printf("xslice_size:%zd\n", xslice_size(xsl));
 	if (xslice_size(xsl) == 0) {
 		*nelems = 0;
 		return NULL;
