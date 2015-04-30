@@ -197,13 +197,23 @@ main(int argc, const char *argv[])
 	printf("sla_p:             %lf\n", sla_p);
 	printf("Number of threads: %u\n", nthreads);
 
-	int sum1, sum2;
+	int sum1, sum2, sum3;
 
 	sum1 = xarr_int_mkrand(ints, nints);
 
 	sum_stats_init(nthreads);
 
 	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
+
+	#if 1
+	mysum_stats_set(0);
+	TSC_MEASURE_TICKS(xticks_seq, {
+		sum3 = sum_seq(&ints_sl);
+	});
+	tsc_report_ticks("sum_seq(serial)", xticks_seq);
+	sum_stats_init(nthreads);
+	#endif
+
 	//printf("DOING SUM\n");
 	xslice_init(ints, 0, xarray_size(ints), &ints_sl);
 	tsc_t ytsc_; tsc_init(&ytsc_); tsc_start(&ytsc_);
@@ -217,7 +227,12 @@ main(int argc, const char *argv[])
 	sum_stats_report(nthreads, xticks);
 
 	if (sum1 != sum2) {
-		fprintf(stderr, "Error in sum: correct=%d vs xarray=%d\n", sum1, sum2);
+		fprintf(stderr, "Error in sum2: correct=%d vs xarray=%d\n", sum1, sum2);
+		abort();
+	}
+
+	if (sum1 != sum3) {
+		fprintf(stderr, "Error in sum3: correct=%d vs xarray=%d\n", sum1, sum3);
 		abort();
 	}
 
