@@ -366,6 +366,25 @@ rpa_slice_move_start(struct rpa_slice *sl, size_t nelems)
 		rpa_slice_leaf0_init(sl);
 }
 
+static inline void *
+rpa_slice_getnextchunk(struct rpa_slice *sl, size_t *nelems)
+{
+	void *ret;
+
+	//printf("xslice_size:%zd\n", xslice_size(xsl));
+	if (sl->sl_len == 0) {
+		*nelems = 0;
+		return NULL;
+	}
+
+	// get chunk to return
+	ret = rpa_slice_get_firstchunk(sl, nelems);
+	// move slice start to the next chunk
+	rpa_slice_move_start(sl, *nelems);
+
+	return ret;
+}
+
 static inline void
 rpa_slice_split(struct rpa_slice const *sl,
                 struct rpa_slice *sl1, struct rpa_slice *sl2)

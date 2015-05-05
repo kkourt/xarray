@@ -202,20 +202,7 @@ xslice_get(xslice_t *xsl, long idx)
 static inline xelem_t *
 xslice_getnextchunk(xslice_t *xsl, size_t *nelems)
 {
-	void *ret;
-
-	//printf("xslice_size:%zd\n", xslice_size(xsl));
-	if (xslice_size(xsl) == 0) {
-		*nelems = 0;
-		return NULL;
-	}
-
-	// get chunk to return
-	ret = rpa_slice_get_firstchunk(&xsl->sl, nelems);
-	// move slice start to the next chunk
-	rpa_slice_move_start(&xsl->sl, *nelems);
-
-	return ret;
+	return rpa_slice_getnextchunk(&xsl->sl, nelems);
 }
 
 static inline xelem_t *
