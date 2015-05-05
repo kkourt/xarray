@@ -364,16 +364,17 @@ rle_encode_rec(xslice_t *syms)
 }
 
 // TODO: parallel version
-int
+// returns true if rles match
+bool
 rle_cmp(xarray_t *rle1, xarray_t *rle2)
 {
 	size_t rle1_size = xarray_size(rle1);
 	size_t rle2_size = xarray_size(rle2);
-	int ret = 1;
+	bool ret = true;
 	if (rle1_size != rle2_size) {
 		printf("size mismatch: rle1:%lu rle2:%lu\n",
 		       rle1_size, rle2_size);
-		ret = 0;
+		ret = false;
 	}
 
 	for (size_t i=0; i<MIN(rle1_size, rle2_size); i++) {
@@ -395,6 +396,83 @@ rle_cmp(xarray_t *rle1, xarray_t *rle2)
 			       "r1->freq=%lu r2->freq=%lu\n",
 			       i, r1->symbol, r2->symbol, r1->freq, r2->freq);
 			return 0;
+		}
+	}
+
+	return ret;
+}
+
+// return true of rles match
+bool
+rle_cmp_fast(xarray_t *rle1, xarray_t *rle2)
+{
+	size_t rle1_size = xarray_size(rle1);
+	size_t rle2_size = xarray_size(rle2);
+	bool ret = true;
+	if (rle1_size != rle2_size) {
+		printf("size mismatch: rle1:%lu rle2:%lu\n",
+		       rle1_size, rle2_size);
+		ret = false;
+	}
+
+
+	xslice_t r1_slice, r2_slice;
+	xslice_init(rle1, 0, rle1_size, &r1_slice);
+	xslice_init(rle2, 0, rle2_size, &r2_slice);
+
+	struct rle_node *r1_chunk, *r2_chunk;
+	size_t r1_chunk_idx, r2_chunk_idx; // position on the chunk
+	size_t r1_chunk_len, r2_chunk_len; // remaining chunk length
+	size_t total_idx = 0; // for printing the proper index
+
+	r1_chunk = xslice_getnextchunk(&r1_slice, &r1_chunk_len);
+	r2_chunk = xslice_getnextchunk(&r2_slice, &r2_chunk_len);
+	r1_chunk_idx = r2_chunk_idx = 0;
+
+	bool r1_done = false, r2_done = false;
+	while (!r1_done || !r2_done) {
+		struct rle_node *r1 = r1_chunk + r1_chunk_idx;
+		struct rle_node *r2 = r2_chunk + r2_chunk_idx;
+		size_t r_len = MIN(r1_chunk_len, r2_chunk_len);
+		for (size_t i=0; i<r_len; i++) {
+			if (r1->symbol != r2->symbol) {
+				printf("symbol mismatch on rle %lu  "
+				       "r1->symbol=%c r2->symbol=%c\n",
+				       total_idx + i,
+				       r1->symbol, r2->symbol);
+				return false;
+			}
+
+			if (r1->freq != r2->freq) {
+				printf("freq mismatch on rle %lu  "
+				       "r1->symbol=%c r2->symbol=%c "
+				       "r1->freq=%lu r2->freq=%lu\n",
+				       total_idx + i,
+				       r1->symbol, r2->symbol, r1->freq, r2->freq);
+				return false;
+			}
+			r1++; r2++;
+		}
+		total_idx += r_len;
+
+		if (r1_chunk_len == r_len) {
+			r1_chunk = xslice_getnextchunk(&r1_slice, &r1_chunk_len);
+			r1_chunk_idx = 0;
+			r1_done = r1_chunk_len == 0;
+		} else {
+			assert(r_len < r1_chunk_len);
+			r1_chunk_idx += r_len;
+			r1_chunk_len -= r_len;
+		}
+
+		if (r2_chunk_len == r_len) {
+			r2_chunk = xslice_getnextchunk(&r2_slice, &r2_chunk_len);
+			r2_chunk_idx = 0;
+			r2_done = r2_chunk_len == 0;
+		} else {
+			assert(r_len < r2_chunk_len);
+			r2_chunk_idx += r_len;
+			r2_chunk_len -= r_len;
 		}
 	}
 
@@ -508,7 +586,7 @@ main(int argc, const char *argv[])
 
 	#if !defined(NDEBUG)
 	TSC_REPORT_TICKS("rle_cmp", {
-		if (rle_cmp(rle, rle_new) != 1) {
+		if (!rle_cmp(rle, rle_new)) {
 			fprintf(stderr, "RLEs do not match\n");
 			exit(1);
 		}
@@ -538,7 +616,7 @@ main(int argc, const char *argv[])
 	//rle_print(rle_rec);
 	#if !defined(NDEBUG)
 	TSC_REPORT_TICKS("rle_cmp", {
-		if (rle_cmp(rle, rle_rec) != 1) {
+		if (!rle_cmp(rle, rle_rec)) {
 			fprintf(stderr, "RLEs do not match\n");
 			exit(1);
 		}
