@@ -526,7 +526,7 @@ main(int argc, const char *argv[])
 	#endif
 	rle_stats_create(nthreads);
 
-	xarray_t __attribute__((unused)) *rle, *rle_rec, *rle_new;
+	xarray_t __attribute__((unused)) *rle, *rle_rec;
 	rle = rle_create_xarr();
 	rle_rec = rle_create_xarr();
 
@@ -542,6 +542,7 @@ main(int argc, const char *argv[])
 
 	rle_stats_init(nthreads);
 
+	// 1: randomly generate a bunch of RLEs
 	TSC_REPORT_TICKS("rle_mkrand",{
 		rle_mkrand(rle, rles_nr, &syms_nr);
 	});
@@ -564,6 +565,7 @@ main(int argc, const char *argv[])
 	rle_stats_init(nthreads);
 
 	xarray_t *syms;
+	// 2: decode the rles: i.e., produce symbols out of them
 	TSC_REPORT_TICKS("rle_decode",{
 		syms = rle_decode(rle, syms_nr);
 	});
@@ -576,15 +578,15 @@ main(int argc, const char *argv[])
 	xslice_init(syms, 0, xarray_size(syms), &syms_sl);
 
 	/*
-	 * start RLE
+	 * serial RLE
 	 */
+	#if !defined(NDEBUG)
+	xarray_t *rle_new;
 	TSC_REPORT_TICKS("rle_encode", {
 		rle_new = rle_encode(&syms_sl);
 	});
 	//rle_print(rle_new);
 
-
-	#if !defined(NDEBUG)
 	TSC_REPORT_TICKS("rle_cmp", {
 		if (!rle_cmp(rle, rle_new)) {
 			fprintf(stderr, "RLEs do not match\n");
