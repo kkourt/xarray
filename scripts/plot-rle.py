@@ -36,7 +36,7 @@ xarr_parse_conf = r'''
 /^xarr_rle_grain: *(\d+)$/
 	xarr_rle_grain = int(_g1)
 
-/^SLA_MAX_LEVEL: *(\d+)$/
+/^sla_max_level: *(\d+)$/
 	sla_max_level = int(_g1)
 
 /^DONE$/
@@ -68,7 +68,8 @@ rle_parse_conf = r'''
 def do_parse(dirname):
 	print dirname
 	slamf = MultiFiles(iter([dirname + "/nostats-xarray_da-runlog",
-	                        dirname + "/nostats-xarray_sla-runlog"]),
+	                        dirname + "/nostats-xarray_sla-runlog",
+                                dirname + "/nostats-xarray_rpa-runlog",]),
 					 lambda x: "__START__: %s" % x,
 					 lambda x: "__END__: %s" % x)
 	lp = LogParser(xarr_parse_conf, debug=False, globs={}, eof_flush=False)
@@ -155,8 +156,10 @@ def do_plot_params(d, serial_d, rle_d, ncores, area_y, canv,
 	plot_serial_d = serial_d[rles][rec_limit][xarr_rle_grain][sla_max_level]
 	serial = da_base / plot_serial_d["DA"][1].min
 
+        pprint(plot_d.keys())
 	add_plot(ar, "da ", da_base, plot_d["DA"])
 	add_plot(ar, "sla", da_base, plot_d["SLA"])
+	add_plot(ar, "rpa", da_base, plot_d["RPA"])
 	add_plot(ar, "array+list", da_base, plot_rle_d["LISTARR"])
 
 	ar.add_plot(MyLineP(
