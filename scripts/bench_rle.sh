@@ -7,7 +7,7 @@ source scripts/utils.sh
 
 # parameters
 rle_rec_limit_S="512 1024"
-xarr_rle_grain_S="32"
+xarr_rle_grain_S="32 64"
 xarr_impl_S="da sla rpa"
 rles=5000000
 
