@@ -46,13 +46,16 @@ CILKLDFLAGS       += $(LDFLAGS)
 #LDFLAGS           += -lgov
 
 ifeq (1,$(USE_TCMALLOC))
-	CFLAGS    += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -ltcmalloc
 	# check for custom installation of gperftools
-	GPERFDIR   = /home/netos/tools/akourtis/gperftools/install
-	LDFLAGS    = -ltcmalloc
-	ifeq ($(strip $(wildcard $(GPERFDIR))),$(GPERFDIR))
-		LDFLAGS += -L$(GPERFDIR)/lib -Xlinker -rpath=$(GPERFDIR)/lib
-	endif
+	#GPERFDIR   = /home/netos/tools/akourtis/gperftools/install
+	#LDFLAGS    = -ltcmalloc
+	#ifeq ($(strip $(wildcard $(GPERFDIR))),$(GPERFDIR))
+	#	LDFLAGS = -ltcmalloc -L$(GPERFDIR)/lib -Xlinker -rpath=$(GPERFDIR)/lib
+	#endif
+	#
+	# Debian: libtcmalloc-minimal
+	LDFLAGS    = -ltcmalloc_minimal
+	CFLAGS    += -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free -ltcmalloc_minimal
 endif
 
 ## create dependencies for all headers
