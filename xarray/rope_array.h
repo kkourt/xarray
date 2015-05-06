@@ -230,20 +230,24 @@ rpa_get(struct rpa *rpa, size_t elem_idx)
  *   @rpa:              rpa the slice belongs to
  *   @sl_start/@sl_len: start and len of the slice in @rpa
  *   @hdr0:             smallest node that contains the whole slice
+ *   @hdr0_off:         offset of the slice inside nodr @hdr0
  *   @leaf0:            first leaf of the slice
- *   @leaf0_off:        offset of slice in first leaf
+ *   @leaf0_off:        offset of slice in first leaf (in elements)
  *
  * hdr0 and leaf0 are an optimization to avoid searching the whole
  * rpa.
  * ->leaf0 is used to access the start of the slice.
  * ->hdr0 is used for random access.
  *
- *  NB: Initially, I only used leaf0. Each lookup went up from leaf0 to find
- *  hdr0 using ->parent and then down to find the desired index. Starting from
- *  leaf0 might make sense for some cases, e.g., for getnextchunk(), but lookups
- *  do not currently do it to keep things simple.
+ *  NB: Initially, I only used leaf0 for the slice. Each lookup went up from
+ *  leaf0 to find hdr0 using ->parent and then down to find the desired index.
+ *
+ *  We start from leaf0 for getnextchunk().
  *
  *  In addition, we could also maintain the last leaf, but we currently don't,
+ *
+ *  Furthermore, for sequential access (e.g., getnextchunk()) another option
+ *  would be to link all the leafs together.
  */
 struct rpa_slice {
 	struct rpa *rpa;
@@ -301,25 +305,22 @@ rpa_slice_leaf0_init(struct rpa_slice *sl)
 	sl->leaf0 = rpa_getleaf(sl->hdr0, sl->hdr0_off, &sl->leaf0_off);
 }
 
-static inline size_t
-rpa_slice_get_firstchunk_nelems__(struct rpa_slice *sl)
-{
-	assert(sl->leaf0->l_hdr.nelems > sl->leaf0_off);
-	return MIN(sl->sl_len, sl->leaf0->l_hdr.nelems - sl->leaf0_off);
-}
-
 static inline void *
 rpa_slice_get_firstchunk__(struct rpa_slice *sl, size_t *nelems)
 {
 	size_t d_off = sl->leaf0_off*sl->rpa->elem_size;
-	if (nelems)
-		*nelems = rpa_slice_get_firstchunk_nelems__(sl);
+	if (nelems) {
+		assert(sl->leaf0->l_hdr.nelems > sl->leaf0_off);
+		*nelems =  MIN(sl->sl_len,
+		               sl->leaf0->l_hdr.nelems - sl->leaf0_off);
+	}
 	return &sl->leaf0->data[d_off];
 }
 
 static inline void *
 rpa_slice_get_firstchunk(struct rpa_slice *sl, size_t *nelems)
 {
+	// initialize leaf0
 	if (sl->leaf0 == NULL)
 		rpa_slice_leaf0_init(sl);
 
@@ -343,7 +344,11 @@ rpa_slice_getchunk(struct rpa_slice *sl, size_t idx, size_t *nelems)
 }
 
 
-// move the start of a slice
+// move the start of a slice.
+//
+// This requires updating:
+//  ->hdr0{,_off}
+//  ->leaf0{,_off}
 static inline void
 rpa_slice_move_start(struct rpa_slice *sl, size_t nelems)
 {
@@ -362,27 +367,75 @@ rpa_slice_move_start(struct rpa_slice *sl, size_t nelems)
 	                            sl->sl_len,
 	                            &sl->hdr0_off);
 
+	// if leaf0 is set, update it
+	// alternatively, we could set it to NULL
 	if (sl->leaf0 != NULL)
 		rpa_slice_leaf0_init(sl);
 }
 
+// return the next chunk of the slice, and update the slice
 static inline void *
-rpa_slice_getnextchunk(struct rpa_slice *sl, size_t *nelems)
+rpa_slice_getnextchunk(struct rpa_slice *sl, size_t *nelems_ptr)
 {
 	void *ret;
 
 	//printf("xslice_size:%zd\n", xslice_size(xsl));
 	if (sl->sl_len == 0) {
-		*nelems = 0;
+		*nelems_ptr = 0;
 		return NULL;
 	}
 
 	// get chunk to return
-	ret = rpa_slice_get_firstchunk(sl, nelems);
-	// move slice start to the next chunk
-	rpa_slice_move_start(sl, *nelems);
+	ret = rpa_slice_get_firstchunk(sl, nelems_ptr);
 
-	return ret;
+	// move slice start to the next chunk
+	assert(sl->sl_len >= *nelems_ptr);
+	sl->sl_start += *nelems_ptr;
+	sl->sl_len   -= *nelems_ptr;
+
+	// slice size is zero: slice can no longer be accesssed
+	if (sl->sl_len == 0)
+		return ret;
+
+	// starting from the current leaf0 node, go up until:
+	//  1. we find a parent which we did not reach from the right -- i.e.,
+	//  the parent has an unvisited right child
+	//  2. we reach ->hdr0
+	struct rpa_hdr *hdr = &sl->leaf0->l_hdr;
+	struct rpa_hdr *next;
+	while (true) {
+		struct rpa_node *parent = hdr->parent;
+		assert(parent != NULL); // we should reach ->hdr0 before NULL
+
+		// 1: we reached the top of our slice
+		if (&parent->n_hdr == sl->hdr0) {
+			assert(parent->left == hdr);
+			sl->hdr0 = rpa_gethdr_range(parent->right, 0,
+			                            sl->sl_len,
+			                            &sl->hdr0_off);
+			if (sl->leaf0 != NULL)
+				rpa_slice_leaf0_init(sl);
+
+			return ret;
+		}
+
+		// 2: if we are the left child, and the right child exists, we
+		// reached the top of our ascension.
+		if (parent->left == hdr && parent->right != NULL) {
+			next = parent->right;
+			// descend
+			while (next->type == RPA_NODE) {
+				struct rpa_node *n = rpa_hdr2node(next);
+				next = n->left ? n->left : n->right;
+			}
+
+			sl->leaf0 = rpa_hdr2leaf(next);
+			sl->leaf0_off = 0;
+			return ret;
+		}
+
+		hdr = &parent->n_hdr;
+	}
 }
 
 static inline void
