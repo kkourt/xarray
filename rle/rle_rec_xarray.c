@@ -581,13 +581,13 @@ main(int argc, const char *argv[])
 	/*
 	 * serial RLE
 	 */
-	#if !defined(NDEBUG)
-	xarray_t *rle_new;
+	xarray_t *rle_new __attribute__((unused));
 	TSC_REPORT_TICKS("rle_encode", {
 		rle_new = rle_encode(&syms_sl);
 	});
 	//rle_print(rle_new);
 
+	#if !defined(NDEBUG)
 	TSC_REPORT_TICKS("rle_cmp", {
 		if (!rle_cmp(rle, rle_new)) {
 			fprintf(stderr, "RLEs do not match\n");
