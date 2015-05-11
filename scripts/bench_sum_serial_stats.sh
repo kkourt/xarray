@@ -11,3 +11,8 @@ SUM_REC_LIMIT=$sum_rec_limit ./sum/sum_xarray_da $xints
 for xarr_grain in $xarr_grain_S; do
 	SUM_REC_LIMIT=$sum_rec_limit XARR_GRAIN=$xarr_grain ./sum/sum_xarray_sla $xints
 done
+
+## do multiple RPA runs, iterating over different xarr_grains
+for xarr_grain in $xarr_grain_S; do
+	SUM_REC_LIMIT=$sum_rec_limit XARR_GRAIN=$xarr_grain ./sum/sum_xarray_rpa $xints
+done
