@@ -182,7 +182,13 @@ void  rpa_append_finalize(struct rpa *rpa, size_t nelems);
 
 void rpa_pop(struct rpa *rpa, size_t *nelems_ptr);
 
+// create a concatanation node
 struct rpa_node *rpa_concat(struct rpa_hdr *left, struct rpa_hdr *right);
+
+// perform a concatenation operation (might copy between leaves if possible)
+struct rpa *rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2);
+void do_rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2);
+
 
 bool rpa_is_balanced(struct rpa_hdr *hdr);
 void rpa_rebalance(struct rpa *rpa);

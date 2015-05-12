@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "rope_array.h"
 
 // initialize an rpa
@@ -28,7 +30,7 @@ rpa_create(size_t elem_size, size_t alloc_grain)
 }
 
 
-// allocate and initialize a node
+// allocate and initialize a concatenation node
 struct rpa_node *
 rpa_concat(struct rpa_hdr *left, struct rpa_hdr *right)
 {
@@ -102,7 +104,17 @@ rpa_append_hdr(struct rpa *rpa, struct rpa_hdr *right)
 	rpa->tail = rpa_get_rightmost(right);
 }
 
-static bool
+// return remaining number of elements in rpa
+static inline size_t
+rpa_tail_remaining(struct rpa *rpa)
+{
+	struct rpa_leaf *tail = rpa->tail;
+	size_t tail_elems_capacity = tail->d_size / rpa->elem_size;
+	assert(tail->l_hdr.nelems <= tail_elems_capacity);
+	return tail_elems_capacity - tail->l_hdr.nelems;
+}
+
+static inline bool
 rpa_tail_full(struct rpa *rpa)
 {
 	struct rpa_leaf *tail = rpa->tail;
@@ -564,13 +576,15 @@ rpa_verify(struct rpa *rpa)
 	#endif
 }
 
-// concatenate rpa2 to rpa1, return result
-struct rpa *
-rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2)
+
+void
+do_rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2)
 {
 	struct rpa_hdr *n1, *n2;
+	size_t elem_size;
 
-	if (rpa1->elem_size != rpa2->elem_size) {
+	elem_size = rpa1->elem_size;
+	if (elem_size != rpa2->elem_size) {
 		fprintf(stderr, "Incompatible element sizes (%zd != %zd)\n",
 		        rpa1->elem_size, rpa2->elem_size);
 		abort();
@@ -578,10 +592,34 @@ rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2)
 
 	n1 = rpa1->root;
 	n2 = rpa2->root;
+	if (n2->type == RPA_LEAF) {
+		struct rpa_leaf *leaf1 = rpa1->tail;
+		struct rpa_leaf *leaf2 = rpa2->tail;
+		assert(&leaf2->l_hdr == rpa2->root);
+
+		size_t l2_elems    = leaf2->l_hdr.nelems;
+		size_t l1_elems    = leaf1->l_hdr.nelems;
+		size_t l1_capacity = leaf1->d_size / elem_size;
+
+		if (l1_elems + l2_elems <= l1_capacity) {
+			void *dst = leaf1->data + (l1_elems*elem_size);
+			void *src = leaf2->data;
+			memcpy(dst, src, l2_elems*elem_size);
+			rpa_update_tailpath(rpa1, l2_elems);
+			rpa_leaf_dealloc(leaf2);
+			return;
+		}
+	}
 
 	rpa1->tail = rpa2->tail;
 	rpa1->root = &rpa_concat(n1,n2)->n_hdr;
+}
 
+struct rpa *
+rpa_concatenate(struct rpa *rpa1, struct rpa *rpa2)
+{
+	do_rpa_concatenate(rpa1, rpa2);
 	free(rpa2);
 	return rpa1;
 }
+

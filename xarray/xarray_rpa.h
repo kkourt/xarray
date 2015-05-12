@@ -110,16 +110,8 @@ xarray_create(struct xarray_init *init)
 xarray_t *
 xarray_concat(xarray_t *arr1, xarray_t *arr2)
 {
-	struct rpa_hdr *n1, *n2;
-
 	assert(arr1->rpa.elem_size == arr2->rpa.elem_size);
-
-	n1 = arr1->rpa.root;
-	n2 = arr2->rpa.root;
-
-	arr1->rpa.tail = arr2->rpa.tail;
-	arr1->rpa.root = &rpa_concat(n1, n2)->n_hdr;
-
+	do_rpa_concatenate(&arr1->rpa, &arr2->rpa);
 	free(arr2);
 
 	xarr_rpa_rebal_implicit(&arr1->rpa);
