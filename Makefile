@@ -1,4 +1,5 @@
 .PHONY: all clean
+SHELL=/bin/bash
 
 USE_TCMALLOC   ?= 1
 DEBUG_BUILD    ?= 0
@@ -224,8 +225,8 @@ clean:
 	rm -f verp/*.o
 	#
 	rm -f sum/*.o
-	rm -rf sum/psum_xarray_da sum/psum_xarray_sla sum/sum_omp
-	rm -rf sum/sum_xarray_da sum/sum_xarray_sla
+	rm -f sum/psum_xarray_{da,sla,rpa} sum/sum_omp
+	rm -f sum/sum_xarray_{da,sla,rpa}
 
 
 ## xvarray tests
