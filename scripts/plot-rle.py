@@ -101,6 +101,7 @@ def do_parse(dirname):
 	return sla_d, serial_d, rle_d, params,
 
 tick_marks = [
+	tick_mark.X(size=4, fill_style=fill_style.black),
 	tick_mark.Square(size=4, fill_style=fill_style.black),
 	tick_mark.Circle(size=4),
 	tick_mark.DownTriangle(size=4, fill_style=fill_style.black),

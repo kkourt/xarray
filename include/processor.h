@@ -31,6 +31,7 @@ typedef struct {
 	volatile int counter;
 } atomic_t;
 
+// From Linux kernel:
 // arch/x86/include/asm/atomic_64.h
 
 /*

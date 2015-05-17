@@ -1,7 +1,8 @@
 #ifndef XCNT_H__
 #define XCNT_H__
 
-/* counters */
+// Counters for measuring statistics
+// Kornilios Kourtis  <kkourt@inf.ethz.ch>
 
 #include <inttypes.h>
 

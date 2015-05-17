@@ -1,3 +1,4 @@
+// From Linux kernel: include/linux/hash.h
 #ifndef _LINUX_HASH_H
 #define _LINUX_HASH_H
 /* Fast hashing routine for ints,  longs and pointers.

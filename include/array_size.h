@@ -1,3 +1,5 @@
+/* File taken from CCAN */
+/* CC0 (Public domain) - see LICENSE file for details */
 #ifndef CCAN_ARRAY_SIZE_H
 #define CCAN_ARRAY_SIZE_H
 #include "build_assert.h"

@@ -1,3 +1,6 @@
+// Adapted to use xarray -- kkourt@inf.ethz.ch
+
+
 /**********************************************************************************************/
 /*  This program is part of the Barcelona OpenMP Tasks Suite                                  */
 /*  Copyright (C) 2009 Barcelona Supercomputing Center - Centro Nacional de Supercomputacion  */

@@ -1,3 +1,5 @@
+// misc helpers
+// Kornilios Kourtis <akourtis@inf.ethz.ch>
 #ifndef MISC_H__
 #define MISC_H__
 

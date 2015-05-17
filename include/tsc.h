@@ -1,6 +1,9 @@
 #ifndef __TSC__
 #define __TSC__
 
+// count ticks (and helpers)
+// Kornilios Kourtis <kkourt@inf.ethz.ch>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
