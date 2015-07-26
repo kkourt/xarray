@@ -1,8 +1,6 @@
-# Xarray
-
 An implementation of sequence data types (think of python lists) that
-efficiently support efficient partition and concation, so that they can be used
-in parallel programming.
+efficiently support efficient partition and concatenation, so that they can be
+used in parallel programming.
 
 There are three alternative implementations:
 
