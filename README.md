@@ -1,6 +1,5 @@
-An implementation of sequence data types (think of python lists) that
-efficiently support efficient partition and concatenation, so that they can be
-used in parallel programming.
+Sequence data types (think of python lists) that support efficient partition and
+concatenation, aimed for use in parallel programming.
 
 There are three alternative implementations:
 
