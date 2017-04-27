@@ -14,10 +14,10 @@ SLA_MAX_LEVEL  ?= 5
 #CILKCC             = $(CILKDIR)/bin/gcc
 #CILKCPP            = $(CILKDIR)/bin/g++
 
-CC                 = gcc-4.9
-CPP                = g++-4.9
-CILKCC             = gcc-4.9
-CILKCPP            = g++-4.9
+CC                 = gcc
+CPP                = g++
+CILKCC             = gcc
+CILKCPP            = g++
 
 LD                  = ld
 INCLUDES            = -I./verp -I./include -I./rle -I./xarray -I./floorplan
